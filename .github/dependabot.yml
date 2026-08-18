@@ -1,0 +1,14 @@
+# The workflow pins actions to commit SHAs so a moved tag cannot publish to the
+# domain. Pinning alone would freeze them forever, so Dependabot opens a PR when
+# an action releases a new version and rewrites the SHA for you.
+#
+# There is no package ecosystem to watch here - render.py is standard library
+# only, and the site ships no dependencies.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

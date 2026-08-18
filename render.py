@@ -11,6 +11,8 @@ this file. Output is plain HTML that a crawler indexes on first pass.
 """
 
 import argparse
+import base64
+import hashlib
 import html
 import json
 import re
@@ -26,6 +28,28 @@ TEMPLATE = ROOT / "templates" / "base.html"
 DIST = ROOT / "dist"
 
 REQUIRED = ("title", "url", "source", "pillar")
+
+# Characters that must never survive into the output.
+#   - C0/C1 controls are illegal in XML and break the feed.
+#   - Lone surrogates get through json.loads(\uD800) and then raise
+#     UnicodeEncodeError at write time, killing the whole build.
+#   - The bidi overrides and isolates are the Trojan Source set: they let a
+#     scraped headline render as text it does not contain.
+# ZWNJ/ZWJ (200c/200d) and LRM/RLM (200e/200f) are deliberately NOT stripped -
+# they are load-bearing in Arabic, Persian, Indic scripts and emoji sequences.
+_STRIP = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"      # control characters
+    "\ud800-\udfff"                              # lone surrogates
+    "​"                                     # zero-width space
+    "‪-‮⁦-⁩"                 # bidi overrides / isolates
+    "]")
+
+# A runaway scrape should degrade the page, not replace it.
+LIMITS = {"title": 300, "source": 120, "why": 500}
+
+
+def clean(value, limit):
+    return _STRIP.sub("", str(value or "")).strip()[:limit]
 
 
 # ---------- load & validate ----------
@@ -50,6 +74,22 @@ def validate(payload, pillars):
         if not isinstance(item, dict):
             print(f"  skip #{n}: not an object", file=sys.stderr)
             continue
+
+        # Sanitise here rather than in esc(), because jsonld() bypasses esc()
+        # entirely. Cleaning at the boundary means every downstream path -
+        # HTML, feed, JSON-LD - inherits clean values.
+        item = dict(item)
+        for field, limit in LIMITS.items():
+            if item.get(field) is not None:
+                item[field] = clean(item[field], limit)
+
+        # A URL is not a display string: silently rewriting it would point the
+        # link somewhere the source never said. Reject instead.
+        if item.get("url") is not None and _STRIP.search(str(item["url"])):
+            print(f"  skip #{n}: url contains control or bidi characters",
+                  file=sys.stderr)
+            continue
+
         missing = [f for f in REQUIRED if not item.get(f)]
         if missing:
             print(f"  skip #{n}: missing {', '.join(missing)}", file=sys.stderr)
@@ -179,6 +219,37 @@ def jsonld(site, page_title, url, items):
                 .replace("&", "\\u0026"))
 
 
+def csp(tpl, site):
+    """Content-Security-Policy for the meta tag.
+
+    GitHub Pages cannot send response headers, so this goes in <meta>. Hashes
+    are computed from the template's own inline scripts at build time, so the
+    policy can never drift out of sync with them. frame-ancestors is omitted
+    because meta CSP does not support it.
+    """
+    digests = " ".join(
+        "'sha256-" + base64.b64encode(hashlib.sha256(s.encode()).digest()).decode() + "'"
+        for s in re.findall(r"<script>(.*?)</script>", tpl, re.S))
+
+    script, connect = f"'self' {digests}", "'none'"
+    if site.get("fathom_site_id"):
+        script += " https://cdn.usefathom.com"
+        connect = "https://cdn.usefathom.com"
+
+    return "; ".join((
+        "default-src 'none'",
+        f"script-src {script}",
+        # 'unsafe-inline' covers the single <style> block; far lower risk than
+        # for scripts, and hashable later if wanted.
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src https://fonts.gstatic.com",
+        "img-src 'self' data:",
+        f"connect-src {connect}",
+        "base-uri 'none'",
+        "form-action 'none'",
+    ))
+
+
 def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
     base = site["url"].rstrip("/")
     canonical = f"{base}/{path}".replace("/index.html", "/")
@@ -199,6 +270,7 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
         "{{PAGE_TITLE}}": esc(page_title),
         "{{DESC}}": esc(desc),
         "{{AUTHOR}}": esc(site.get("author", "")),
+        "{{CSP}}": esc(csp(tpl, site)),
         "{{CANONICAL}}": esc(canonical),
         "{{NAV}}": nav,
         "{{LEDE}}": lede,
