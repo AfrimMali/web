@@ -6,6 +6,7 @@
 
 <title>{{PAGE_TITLE}}</title>
 <meta name="description" content="{{DESC}}">
+<meta name="author" content="{{AUTHOR}}">
 <link rel="canonical" href="{{CANONICAL}}">
 
 <meta property="og:type" content="website">
@@ -17,8 +18,8 @@
 <meta name="twitter:title" content="{{PAGE_TITLE}}">
 <meta name="twitter:description" content="{{DESC}}">
 
-<meta name="theme-color" content="#FCFBF8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F0EEE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1F1E1D" media="(prefers-color-scheme: dark)">
 <link rel="alternate" type="application/atom+xml" title="{{SITE_TITLE}}" href="/feed.xml">
 
 <script>
@@ -36,31 +37,36 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 
 <style>
+  /* Sampled from darioamodei.com's stylesheet: ivory-medium ground, slate-dark
+     text, slate-light muted, cloud-light rules. That site has no dark mode, so
+     dark reuses the same swatches inverted. Both pass WCAG AA. */
   :root{
-    --bg:#FCFBF8; --fg:#191813; --muted:#77726A;
-    --rule:#E5E1D8; --hover:#F2EFE7;
-    --serif:"Newsreader",Iowan Old Style,Palatino,Georgia,serif;
+    --bg:#F0EEE6; --fg:#1F1E1D; --muted:#5E5D59;
+    --rule:#D1CFC5; --hover:#E8E6DC;
+    --serif:"Newsreader","Times New Roman",Iowan Old Style,Georgia,serif;
     --sans:ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
   }
   .dark{
-    --bg:#141412; --fg:#E9E6DE; --muted:#8B867C;
-    --rule:#2B2A26; --hover:#1D1C19;
+    --bg:#1F1E1D; --fg:#F0EEE6; --muted:#B0AEA5;
+    --rule:#3D3D3A; --hover:#3D3D3A;
   }
 
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{
     margin:0; background:var(--bg); color:var(--fg);
-    font-family:var(--serif); font-weight:300;
-    font-size:18px; line-height:1.6;
+    font-family:var(--serif); font-weight:400;
+    font-size:1.25rem; line-height:1.6;
+    font-variation-settings:"opsz" 24;   /* his body optical cut */
     -webkit-font-smoothing:antialiased;
-    padding:clamp(2.5rem,7vw,5.5rem) 1.5rem 5rem;
+    padding:clamp(2.5rem,7vw,5.5rem) 20px 5rem;   /* his .container side padding */
     transition:background-color .2s ease,color .2s ease;
   }
-  .wrap{max-width:39rem;margin:0 auto}
+  /* his --_layout---container--max-width-narrow */
+  .wrap{max-width:38.75rem;margin:0 auto}
 
   a{color:var(--fg);text-decoration:none}
   a:focus-visible{outline:2px solid var(--fg);outline-offset:3px;border-radius:2px}
@@ -68,70 +74,94 @@
   /* masthead */
   .top{display:flex;align-items:baseline;justify-content:space-between;gap:1.5rem;flex-wrap:wrap}
   .top h1{
-    font-family:var(--serif);font-weight:400;font-size:1.6rem;
-    letter-spacing:-.01em;margin:0;
+    font-family:var(--serif);font-weight:700;font-size:1.9rem;
+    font-variation-settings:"opsz" 60;   /* his display optical cut */
+    line-height:1.1;letter-spacing:0;margin:0;
   }
   .top nav{display:flex;align-items:baseline;gap:1.15rem}
   .top nav a,.top nav button{
-    font-family:var(--sans);font-size:.78rem;letter-spacing:.01em;
+    font-family:var(--sans);font-size:.8em;letter-spacing:.01em;
     color:var(--muted);text-decoration:none;
-    background:none;border:0;padding:0;cursor:pointer;font-weight:400;
+    background:none;border:0;padding:0;cursor:pointer;font-weight:500;
   }
   .top nav a:hover,.top nav button:hover{color:var(--fg)}
 
   /* lede + expandable about */
-  .lede{margin:1.6rem 0 0;max-width:34rem}
+  /* his paragraph-lg */
+  .lede{margin:1.6rem 0 0;max-width:34rem;font-size:1.1em;line-height:1.5}
   .more{
-    font-family:var(--sans);font-size:.78rem;color:var(--muted);
+    font-family:var(--sans);font-size:.8em;font-weight:500;color:var(--muted);
     background:none;border:0;padding:0;cursor:pointer;
   }
   .more:hover{color:var(--fg)}
-  .about{margin:.9rem 0 0;max-width:34rem;color:var(--muted);font-size:.95rem}
+  .about{margin:.9rem 0 0;max-width:34rem;color:var(--muted);font-size:.9em;line-height:1.5}
   .about[hidden]{display:none}
 
   /* sections */
   .stamp{
-    font-family:var(--sans);font-size:.72rem;letter-spacing:.06em;
+    font-family:var(--sans);font-size:.8em;font-weight:500;letter-spacing:.1em;
     text-transform:uppercase;color:var(--muted);
     margin:3.5rem 0 0;
   }
   section{margin-top:2.6rem}
   section h2{
-    font-family:var(--serif);font-weight:400;font-style:italic;
-    font-size:1.06rem;color:var(--muted);
+    font-family:var(--serif);font-weight:600;font-style:italic;
+    font-size:1.1em;line-height:1.2;color:var(--muted);
     margin:0 0 1.1rem;padding-bottom:.5rem;border-bottom:1px solid var(--rule);
   }
-  section ul{list-style:none;margin:0;padding:0}
+  /* Bare ul, not `section ul` - render_archive() emits a <ul> with no <section>
+     wrapper, so the narrower selector left the archive showing bullets. */
+  ul{list-style:none;margin:0;padding:0}
 
   .item{margin-bottom:1.45rem}
   .item:last-child{margin-bottom:0}
   .item .t{
-    font-size:1.06rem;line-height:1.4;font-weight:400;
+    font-size:1em;line-height:1.4;font-weight:500;
     border-bottom:1px solid transparent;transition:border-color .15s ease;
   }
   .item .t:hover{border-bottom-color:var(--fg)}
   .item .meta{
-    font-family:var(--sans);font-size:.76rem;color:var(--muted);
+    font-family:var(--sans);font-size:.7em;color:var(--muted);
     white-space:nowrap;
   }
-  .item .why{margin:.2rem 0 0;color:var(--muted);font-size:.94rem;line-height:1.5}
+  /* his paragraph-sm */
+  .item .why{margin:.25rem 0 0;color:var(--muted);font-size:.9em;line-height:1.5}
 
   /* archive grouping */
   .month{
-    font-family:var(--sans);font-size:.72rem;letter-spacing:.06em;
+    font-family:var(--sans);font-size:.8em;font-weight:500;letter-spacing:.1em;
     text-transform:uppercase;color:var(--muted);
     margin:2.8rem 0 1.1rem;padding-bottom:.5rem;border-bottom:1px solid var(--rule);
   }
 
   .end{
     margin-top:4rem;padding-top:1.2rem;border-top:1px solid var(--rule);
-    font-family:var(--sans);font-size:.76rem;color:var(--muted);
+    font-family:var(--sans);font-size:.75em;color:var(--muted);
     display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
   }
   .end a{color:var(--muted)}
   .end a:hover{color:var(--fg)}
 
   .empty{color:var(--muted);font-style:italic;margin-top:2.5rem}
+
+  /* Theme switch: a bare track and knob. No icons - the design uses none.
+     ID selector so it outranks the .top nav button reset above. */
+  #theme{
+    position:relative;flex:0 0 auto;width:2.2rem;height:1.2rem;
+    background:var(--hover);border:1px solid var(--rule);border-radius:1rem;
+    padding:0;cursor:pointer;align-self:center;
+    transition:background-color .2s ease,border-color .2s ease;
+  }
+  #theme .knob{
+    position:absolute;top:50%;left:.17rem;transform:translateY(-50%);
+    width:.8rem;height:.8rem;border-radius:50%;background:var(--muted);
+    transition:transform .2s ease,background-color .2s ease;
+  }
+  #theme:hover{border-color:var(--muted)}
+  #theme[aria-checked="true"] .knob{
+    transform:translateY(-50%) translateX(.95rem);background:var(--fg);
+  }
+  #theme:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
 
   @media (prefers-reduced-motion:reduce){
     *{transition:none !important}
@@ -147,7 +177,8 @@
     <h1><a href="/">{{SITE_TITLE}}</a></h1>
     <nav>
       {{NAV}}
-      <button id="theme" type="button" aria-label="Switch colour scheme">Dark</button>
+      <button id="theme" type="button" role="switch" aria-checked="false"
+              aria-label="Dark mode"><span class="knob"></span></button>
     </nav>
   </header>
 
@@ -166,12 +197,12 @@
 (function () {
   var btn = document.getElementById("theme");
   var root = document.documentElement;
-  function label() { btn.textContent = root.className === "dark" ? "Light" : "Dark"; }
-  label();
+  function sync() { btn.setAttribute("aria-checked", root.className === "dark"); }
+  sync();
   btn.addEventListener("click", function () {
     root.className = root.className === "dark" ? "light" : "dark";
     try { localStorage.setItem("theme", root.className); } catch (e) {}
-    label();
+    sync();
   });
 
   var more = document.getElementById("more");

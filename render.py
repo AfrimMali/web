@@ -61,6 +61,7 @@ def validate(payload, pillars):
             print(f"  skip #{n}: unknown pillar {item['pillar']!r}", file=sys.stderr)
             continue
         if item["url"] in seen:
+            print(f"  skip #{n}: duplicate url {item['url']}", file=sys.stderr)
             continue
         seen.add(item["url"])
         good.append(item)
@@ -68,17 +69,29 @@ def validate(payload, pillars):
 
 
 def sort_key(item):
-    return (item.get("published", ""), item.get("score", 0))
+    # Coerce both fields: a scraper emitting score as "85" for one item and 85 for
+    # another would otherwise raise TypeError in sorted() and kill the whole build.
+    try:
+        score = float(item.get("score") or 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    return (str(item.get("published") or ""), score)
 
 
 # ---------- helpers ----------
 
+# Control characters that are illegal in XML at any escaping level. html.escape
+# leaves them alone, and one of them in a scraped title makes feed.xml unparseable.
+_ILLEGAL_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
 def esc(s):
-    return html.escape(str(s or ""), quote=True)
+    return html.escape(_ILLEGAL_XML.sub("", str(s or "")), quote=True)
 
 
 def parse_date(value):
-    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ"):
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ",
+                "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S.%fZ"):
         try:
             d = datetime.strptime(str(value), fmt)
             return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
@@ -140,7 +153,7 @@ def render_archive(items):
 
 
 def jsonld(site, page_title, url, items):
-    return json.dumps({
+    blob = json.dumps({
         "@context": "https://schema.org",
         "@type": "CollectionPage",
         "name": page_title,
@@ -157,6 +170,13 @@ def jsonld(site, page_title, url, items):
             ],
         },
     }, ensure_ascii=False)
+
+    # json.dumps does not escape "/", so a title containing </script> would close
+    # the ld+json block and everything after it would parse as live markup. These
+    # are valid JSON escapes, so the payload still parses.
+    return (blob.replace("<", "\\u003c")
+                .replace(">", "\\u003e")
+                .replace("&", "\\u0026"))
 
 
 def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
@@ -178,6 +198,7 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
         "{{SITE_TITLE}}": esc(site["title"]),
         "{{PAGE_TITLE}}": esc(page_title),
         "{{DESC}}": esc(desc),
+        "{{AUTHOR}}": esc(site.get("author", "")),
         "{{CANONICAL}}": esc(canonical),
         "{{NAV}}": nav,
         "{{LEDE}}": lede,
@@ -220,11 +241,16 @@ def atom(site, items):
 """
 
 
-def sitemap(site):
+def sitemap(site, items, payload=None):
     base = site["url"].rstrip("/")
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Derive lastmod from the content, not the clock. The daily cron rebuilds even
+    # when nothing changed; restamping today's date each time teaches crawlers to
+    # ignore lastmod entirely.
+    dates = [d for d in (parse_date(i.get("published")) for i in items) if d]
+    newest = max(dates, default=None) or parse_date((payload or {}).get("generated_at"))
+    day = (newest or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
     urls = "".join(
-        f"\n  <url><loc>{base}{p}</loc><lastmod>{today}</lastmod></url>"
+        f"\n  <url><loc>{base}{p}</loc><lastmod>{day}</lastmod></url>"
         for p in ("/", "/archive.html")
     )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -281,7 +307,7 @@ def main():
     ), encoding="utf-8")
 
     (DIST / "feed.xml").write_text(atom(site, items), encoding="utf-8")
-    (DIST / "sitemap.xml").write_text(sitemap(site), encoding="utf-8")
+    (DIST / "sitemap.xml").write_text(sitemap(site, items, payload), encoding="utf-8")
     (DIST / "robots.txt").write_text(
         f"User-agent: *\nAllow: /\nSitemap: {site['url'].rstrip('/')}/sitemap.xml\n",
         encoding="utf-8")

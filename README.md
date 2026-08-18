@@ -78,7 +78,7 @@ Specifically not copied:
 
 - **SPA routing.** Client-rendered content lands in a slower, less reliable crawl
   queue. You asked for this to be findable; static HTML is indexed on the first
-  pass. This site has 40 lines of JavaScript and works with JS switched off.
+  pass. This site has 31 lines of JavaScript and works with JS switched off.
 - **jQuery.** 30KB for DOM work the browser does natively.
 - **Rspack / chunking.** A build pipeline for an app. Your page is a list of links.
 - **Phosphor Icons.** The design uses no icons.
@@ -101,11 +101,16 @@ a weekly note explaining what the week's findings add up to — not more markup.
 
 ## Design
 
-Colours are six CSS variables at the top of `templates/base.html`, one set for
-light and one for `.dark`. I matched the warm off-white and near-black character of
-the reference rather than eyedroppering it. If you want the exact values, sample
-them from the real site and replace those two blocks — it's a thirty-second edit
-and nothing else depends on them.
+Colours are five CSS variables at the top of `templates/base.html`, one set for
+light and one for `.dark`. These are now the exact values sampled from
+darioamodei.com's stylesheet — ivory-medium ground, slate-dark text, slate-light
+muted, cloud-light rules. That site has no dark mode, so the dark set reuses the
+same swatches inverted. Both pass WCAG AA. Nothing else depends on them.
+
+Type is Newsreader, which is what the reference uses too. Body is 20px Regular at
+the 24pt optical cut; the masthead uses the 60pt cut at 700. The optical sizes come
+from the `opsz` axis on the Google Fonts variable face, not from the reference's
+own font files.
 
 The theme is set before first paint, so there's no flash. It follows the system
 setting until you click the toggle, then remembers your choice in `localStorage`.
