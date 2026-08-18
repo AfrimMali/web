@@ -18,7 +18,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: the label is mutable and the image moves under you.
+    runs-on: ubuntu-24.04
     steps:
       # Pinned to commit SHAs, not tags. Tags are mutable, and this workflow
       # holds pages:write and id-token:write - a moved tag could publish
@@ -37,7 +38,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}

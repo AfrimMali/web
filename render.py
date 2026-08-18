@@ -227,11 +227,12 @@ def csp(tpl, site):
     policy can never drift out of sync with them. frame-ancestors is omitted
     because meta CSP does not support it.
     """
-    digests = " ".join(
-        "'sha256-" + base64.b64encode(hashlib.sha256(s.encode()).digest()).decode() + "'"
-        for s in re.findall(r"<script>(.*?)</script>", tpl, re.S))
+    def digests(tag):
+        return " ".join(
+            "'sha256-" + base64.b64encode(hashlib.sha256(s.encode()).digest()).decode() + "'"
+            for s in re.findall(f"<{tag}>(.*?)</{tag}>", tpl, re.S))
 
-    script, connect = f"'self' {digests}", "'none'"
+    script, connect = f"'self' {digests('script')}", "'none'"
     if site.get("fathom_site_id"):
         script += " https://cdn.usefathom.com"
         connect = "https://cdn.usefathom.com"
@@ -239,9 +240,11 @@ def csp(tpl, site):
     return "; ".join((
         "default-src 'none'",
         f"script-src {script}",
-        # 'unsafe-inline' covers the single <style> block; far lower risk than
-        # for scripts, and hashable later if wanted.
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        # The <style> block is static, so it hashes like the scripts do and
+        # 'unsafe-inline' is unnecessary. Injected CSS can exfiltrate data via
+        # attribute selectors and background-image URLs, so this is worth closing.
+        # The googleapis origin covers the linked font stylesheet.
+        f"style-src {digests('style')} https://fonts.googleapis.com",
         "font-src https://fonts.gstatic.com",
         "img-src 'self' data:",
         f"connect-src {connect}",
@@ -311,6 +314,24 @@ def atom(site, items):
   <updated>{now}</updated>{entries}
 </feed>
 """
+
+
+def security_txt(site):
+    """RFC 9116 contact file, or None when no address is configured.
+
+    Expires is recomputed on every build, so the daily rebuild keeps it valid
+    rather than letting it silently go stale.
+    """
+    contact = site.get("security_contact", "").strip()
+    if not contact:
+        return None
+    base = site["url"].rstrip("/")
+    expires = datetime.now(timezone.utc).replace(microsecond=0)
+    expires = expires.replace(year=expires.year + 1)
+    return (f"Contact: mailto:{contact}\n"
+            f"Expires: {expires.strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
+            f"Preferred-Languages: {site.get('lang', 'en')}\n"
+            f"Canonical: {base}/.well-known/security.txt\n")
 
 
 def sitemap(site, items, payload=None):
@@ -384,6 +405,11 @@ def main():
         f"User-agent: *\nAllow: /\nSitemap: {site['url'].rstrip('/')}/sitemap.xml\n",
         encoding="utf-8")
     (DIST / ".nojekyll").write_text("", encoding="utf-8")
+
+    sec = security_txt(site)
+    if sec:
+        (DIST / ".well-known").mkdir(exist_ok=True)
+        (DIST / ".well-known" / "security.txt").write_text(sec, encoding="utf-8")
 
     print(f"wrote {DIST}/ — index, archive, feed, sitemap, robots")
 

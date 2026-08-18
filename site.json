@@ -16,6 +16,9 @@
 
   "fathom_site_id": "",
 
+  "_security_contact": "address for /.well-known/security.txt; blank emits no file",
+  "security_contact": "security@afrimmali.com",
+
   "links": [
     { "label": "Archive", "href": "/archive.html" },
     { "label": "Feed", "href": "/feed.xml" }

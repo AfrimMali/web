@@ -11,6 +11,9 @@
 <title>{{PAGE_TITLE}}</title>
 <meta name="description" content="{{DESC}}">
 <meta name="author" content="{{AUTHOR}}">
+<!-- Sources still see the traffic came from this site, but only the origin,
+     never the full path. -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="canonical" href="{{CANONICAL}}">
 
 <meta property="og:type" content="website">
