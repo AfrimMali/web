@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-08-18T06:00:00Z",
+  "items": [
+    {
+      "title": "Vitamin D supplementation does not reduce fracture risk in community-dwelling adults",
+      "url": "https://example.org/cochrane-vitamin-d",
+      "source": "Cochrane",
+      "pillar": "health",
+      "why": "Stop supplementing for bone health unless you are deficient or over 70.",
+      "published": "2026-08-18",
+      "score": 88
+    },
+    {
+      "title": "Ground cinnamon recalled across twelve states for elevated lead",
+      "url": "https://example.org/fsis-cinnamon",
+      "source": "FSIS",
+      "pillar": "practical",
+      "why": "Check the lot code on the tin; return it to the store for a refund.",
+      "published": "2026-08-18",
+      "score": 92
+    },
+    {
+      "title": "Spaced retrieval outperforms rereading in a 4,000-student trial",
+      "url": "https://example.org/retrieval-trial",
+      "source": "Nature Human Behaviour",
+      "pillar": "education",
+      "why": "Close the book and self-test; rereading feels productive and is not.",
+      "published": "2026-08-17",
+      "score": 79
+    },
+    {
+      "title": "Chrome ships system-wide live captions for any audio in any tab",
+      "url": "https://example.org/chrome-captions",
+      "source": "Deque",
+      "pillar": "technology",
+      "why": "Enable under Settings, Accessibility; works offline and on any video.",
+      "published": "2026-08-17",
+      "score": 71
+    },
+    {
+      "title": "Blood pressure targets below 120 systolic reduce events in adults over 60",
+      "url": "https://example.org/bp-targets",
+      "source": "JAMA",
+      "pillar": "health",
+      "why": "Worth asking your doctor whether your current target is out of date.",
+      "published": "2026-08-16",
+      "score": 84
+    },
+    {
+      "title": "Front-loading rear child seats recalled for harness release defect",
+      "url": "https://example.org/cpsc-seats",
+      "source": "CPSC",
+      "pillar": "practical",
+      "why": "Affected models release under load; free replacement harness from the maker.",
+      "published": "2026-08-15",
+      "score": 90
+    }
+  ]
+}

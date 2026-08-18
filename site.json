@@ -1,0 +1,23 @@
+{
+  "title": "Signal",
+  "tagline": "Evidence-weighted findings in health, learning, technology and public safety. Updated daily. Nothing else.",
+  "about": "Sources are a fixed whitelist of journals, institutions and government feeds. Every item is scored for whether it changes something you can do or decide, and most are discarded. There is no feed to scroll, no comments, and no algorithm learning what keeps you here.",
+  "url": "https://afrimmali.com",
+  "author": "AfrimMali",
+  "lang": "en",
+
+  "index_items": 20,
+  "pillars": {
+    "health": "Health",
+    "education": "Learning",
+    "technology": "Technology",
+    "practical": "Safety & recalls"
+  },
+
+  "fathom_site_id": "",
+
+  "links": [
+    { "label": "Archive", "href": "/archive.html" },
+    { "label": "Feed", "href": "/feed.xml" }
+  ]
+}
