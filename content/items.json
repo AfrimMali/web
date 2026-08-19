@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T15:18:27Z",
+  "generated_at": "2026-08-19T15:40:45Z",
   "items": [
     {
       "title": "Cochrane: no reliable evidence that common embryo-transfer preparation techniques improve IVF success",
@@ -28,7 +28,8 @@
       "pillar": "practical",
       "why": "Discard or return the recalled pico de gallo, salsas, guacamole, stuffed mushrooms and soup mixes with the listed UPCs and best-by dates from stores including HEB, Whole Foods, Walmart, Target, Trader Joe's, Kroger, Stop & Shop and Hannaford — 345 people across 27 states are sick and the investigation is ongoing.",
       "published": "2026-08-14",
-      "score": 90
+      "score": 90,
+      "brief": "An ongoing Salmonella Javiana outbreak is tied to fresh jalapeños grown in Sinaloa, Mexico and imported by Coast Citrus Distributors. As of August 14 the count stands at 345 illnesses in 27 states, 36 hospitalizations and no deaths, with onsets between June 19 and July 20. Of 191 sick people interviewed, 93% had eaten at a Mexican-style restaurant; Chipotle switched jalapeño suppliers on July 20 and QDOBA stopped using jalapeños on July 28, so the FDA no longer considers those chains an ongoing risk. The distributor has recalled the remaining product and stopped importing from the common grower.\n\nThe recall has now reached supermarket shelves. NatureBest Precut & Produce recalled NatureBest- and HEB-brand pico de gallo, stuffed mushrooms, soup mix and diced jalapeño sold in Texas and Louisiana between July 3 and August 5. Whole Foods recalled salsas, guacamole, pico de gallo and prepared foods sold in its Produce and Prepared Foods departments in Texas, Oklahoma, Louisiana, Arkansas, Wisconsin, Michigan, Illinois, Indiana, Iowa, Missouri, Kentucky and Ohio, with best-by dates of 8/7/2026 through 8/16/2026. Stores reported to have received affected product include Hannaford, HEB, Kroger, Stop & Shop, Target, Trader Joe's, Walmart and Whole Foods.\n\nIf you have any of these products, check the UPC and lot codes (the recalled range is 190A26184 through 190A26216, full tables on the FDA page) and the best-by dates, then discard or return them. Salmonella symptoms — diarrhea, fever, cramps — typically appear 12 to 72 hours after eating contaminated food and last four to seven days; children under five, the elderly and people with weakened immune systems are most at risk of severe illness. The investigation is ongoing and the advisory will be updated as further downstream recalls are announced."
     },
     {
       "title": "CPSC recalls 250,000 Cooluli mini-fridges whose electrical switch can short-circuit and start fires",
@@ -37,7 +38,8 @@
       "pillar": "practical",
       "why": "Unplug and stop using 10- or 15-liter Cooluli mini-fridges with batch numbers 1535–1545 or 1200000–1202080 (Infinity, Classic, Glow Beauty and Vibe series) and contact Cooluli for a free replacement cord — there are 19 reports of smoking, sparking and fires with over $80,000 in property damage.",
       "published": "2026-08-13",
-      "score": 88
+      "score": 88,
+      "brief": "About 250,000 Cooluli 10-liter and 15-liter minifridges are recalled because their electrical switch can short-circuit, creating fire and burn hazards. Cooluli has logged 19 reports of units smoking, sparking, burning, melting, overheating or catching fire, with property damage totaling more than $80,000 and one smoke-inhalation injury. The importer is Lisse USA LLC of Brooklyn, New York.\n\nThe affected units have two power input ports on the back (AC and DC) and a removable cord with no separate power adapter brick. Batch numbers 1535 through 1545 and 1200000 through 1202080 are included; the model (ITEM #) and batch number are printed on a label inside the fridge door. They were sold in the Infinity, Classic, Glow Beauty and Vibe series in black, blue, green, white, red and patterned finishes.\n\nStop using the fridge immediately. Contact Cooluli at 718-834-5312, recall@cooluli.com, or cooluli.com/pages/product-notices-recalls; you will be asked to unplug the unit, cut the power cord and send photos of the model and batch numbers. Cooluli will ship a free replacement DC power cord plus a permanent sticker to cover the AC port so the unit can only be used on DC power."
     },
     {
       "title": "CISA confirms active exploitation of a Windows WinSock privilege-escalation flaw and adds it to the known-exploited catalog",
@@ -46,7 +48,8 @@
       "pillar": "technology",
       "why": "Install the August 2026 Windows security updates now — the WinSock driver flaw CVE-2026-68820 is being actively exploited, and Cisco ASA/FTD (CVE-2026-20349) and Metabase (CVE-2026-72898) are on the same known-exploited list.",
       "published": "2026-08-11",
-      "score": 75
+      "score": 75,
+      "brief": "CISA added three vulnerabilities to its Known Exploited Vulnerabilities catalog on August 11 on evidence of active exploitation: CVE-2026-68820, a use-after-free in the Microsoft Windows Ancillary Function Driver for WinSock; CVE-2026-20349, a heap inspection vulnerability in Cisco Secure Firewall ASA and Firewall Threat Defense; and CVE-2026-72898, an SQL injection in Metabase.\n\nA KEV listing is the agency's strongest signal to treat a flaw as urgent. Under Binding Operational Directive 26-04, federal civilian agencies must prioritize remediation of KEV-listed vulnerabilities on publicly exposed systems that could grant full control of an asset, and must check whether attackers compromised systems before the patch was applied. CISA encourages every organization to apply the same risk-based priority, not just federally bound ones.\n\nThe catalog entry itself does not carry exploit or patch details — it is a signal to patch promptly against vendor guidance. The agency notes these vulnerabilities are a frequent attack vector and invites anyone aware of an exploited CVE not yet listed to nominate it."
     },
     {
       "title": "EU regulators warn that long-term use of desogestrel mini-pills and etonogestrel implants and rings carries a small meningioma risk",
@@ -55,7 +58,8 @@
       "pillar": "health",
       "why": "If you have used a desogestrel pill or etonogestrel implant or ring for a year or more, the meningioma risk rises with duration (about 1 extra case per 67,300 users, and 3.3-fold higher after other progestogens) — these contraceptives are now contraindicated after any meningioma, and the risk returns to baseline a year after stopping.",
       "published": "2026-08-06",
-      "score": 72
+      "score": 72,
+      "brief": "The Italian Medicines Agency, on behalf of the marketing-authorization holders and in agreement with the EMA, warns that current, prolonged use (a year or more) of contraceptives containing desogestrel or etonogestrel carries a small increased risk of meningioma, a usually benign tumour of the brain's lining. The warning rests on a French national case-control study that matched 8,391 women who had intracranial surgery for meningioma with 83,910 controls: odds ratio 1.3 for a year or more of 75-microgram desogestrel, rising to 2.1 with seven or more years of use. In absolute terms, roughly one additional case is expected per 67,300 treated women. The risk was no longer detectable a year after stopping, and was higher (OR 3.3) in women who had previously used progestogens already linked to meningioma, such as cyproterone, nomegestrol, medroxyprogesterone or chlormadinone.\n\nBecause desogestrel is converted in the body to etonogestrel, the finding is taken to apply to etonogestrel implants and rings as well as desogestrel mini-pills. As a result, these products are now contraindicated in women who have or have had a meningioma, prescribers are told to watch for signs such as vision changes, hearing loss or ringing in the ears, loss of smell, headaches that worsen over time, memory loss, seizures or weakness in the limbs, and the drug must be discontinued if a meningioma is diagnosed. Product information is being updated with meningioma listed as an adverse reaction.\n\nThe evidence base here is a single observational case-control study, so the absolute risk is what matters: small, and reversible after stopping. Women on long-term treatment should raise it at their next consultation rather than stopping contraception abruptly on their own."
     },
     {
       "title": "DUMOS nine-drawer dressers recalled for tip-over and entrapment risk to children",
@@ -64,7 +68,8 @@
       "pillar": "practical",
       "why": "If yours is not anchored to the wall, put it out of children's reach and claim the full refund.",
       "published": "2026-08-13",
-      "score": 85
+      "score": 85,
+      "brief": "About 8,981 DUMOS nine-drawer fabric dressers are recalled because they are unstable when not anchored to a wall, creating tip-over and entrapment hazards that can seriously injure or kill children. The units, sold as television-stand dressers in white, black, gray and brown, also violate the mandatory safety standard for clothing storage units required by the STURDY Act. No incidents or injuries have been reported.\n\nThe recalled dressers have a metal frame about 13.4 inches wide, 47 inches long and 31.3 inches tall, weigh 31.5 pounds, and come with LED lights and built-in power outlets and ports. The SKUs WMEDX-FC-TVK9CDC-RT, -GY, -BK or -WT are printed on a label on the product packaging.\n\nConsumers should immediately stop using the dresser if it is not anchored and move it somewhere children cannot reach. Contact DUMOS toll-free at 877-820-7778 (9 a.m. to 4 p.m. PT, weekdays), by email at dumosdresserrecall@dumos.com, or via dumos.ehengjian.com/sys/recall for a full refund. The refund requires destroying the dresser — cutting the drawers in half, writing RECALLED on them in permanent marker and sending a photo — before disposal. The importer is Aosai Technology Ltd, doing business as DUMOS, of China."
     },
     {
       "title": "Hampton Bay Halwin 52-inch ceiling fans recalled after blades separated from the motor",
@@ -73,7 +78,8 @@
       "pillar": "practical",
       "why": "Stop using the fan and claim either a refund or a Home Depot gift card from Youngo.",
       "published": "2026-08-13",
-      "score": 80
+      "score": 80,
+      "brief": "About 9,460 Hampton Bay Halwin 52-inch indoor/outdoor ceiling fans are recalled because the fan blades can separate from the motor flywheel while the fan is running, posing impact and injury hazards. Youngo Limited, the manufacturer, has received 11 reports of blades breaking or separating; no injuries have been reported. The fans were sold at Home Depot.\n\nThe recall covers model numbers AK396H-MBK (matte black) and AK396H-BN (brushed nickel), which have an adjustable white LED light and a remote. UPCs 840059614922 and 840059615370 appear on the product packaging, on the rating label inside the fan's mounting plate (the same label as the serial number), and on the warranty registration card.\n\nStop using the fan immediately. Contact Youngo toll-free at 877-902-5588 (9 a.m. to 5 p.m. PT, weekdays), by email at halwin-recall@tal-usa.com, or at tal-usa.com/halwin-recall for either a full refund by ACH payment or store credit as a Home Depot gift card — both require proof of purchase or a photo of the serial number plus a photo showing the product was disposed of. Alternatively, return the fan to any Home Depot store for store credit or a refund to the original payment card."
     },
     {
       "title": "Microsoft Entra ID makes passkeys the default and begins retiring SMS and voice sign-in",
@@ -82,7 +88,8 @@
       "pillar": "technology",
       "why": "If your organisation still signs in by SMS or voice code, move users to passkeys before 1 September or they are auto-enrolled and prompted.",
       "published": "2026-08-10",
-      "score": 84
+      "score": 84,
+      "brief": "Microsoft Entra ID is making passkeys the default authentication experience. From September 1, 2026, users currently enabled for SMS or voice will be automatically enabled for passkeys, and the registration campaign will prompt them to register one at their next MFA sign-in. From February 1, 2027, Microsoft-provided telecom delivery for SMS and voice is retired completely. After that date, any user whose only available MFA method is SMS or voice will hit a blocking prompt that requires registering a passkey before they can sign in — explicitly no opt-out, enforced for all tenants.\n\nOrganizations with a genuine regulatory or operational need for SMS or voice can keep it by contracting a customer-managed telecom provider through the Microsoft Security Store: provider details arrive September 18, 2026, and configuration becomes possible October 30, 2026. Until then, a temporary opt-out of the September 1 auto-enablement exists via a Graph API setting (passkeyDynamicMigration set to true in the authentication methods policy), but it does not extend past February 1, 2027.\n\nAdmins should find which users still rely on SMS or voice — Microsoft provides a PowerShell script for this — then follow the passkey deployment guide and run a phased user-communication plan. Passkeys come in two forms: synced ones stored in platform credential managers (iCloud Keychain, Google Password Manager) and device-bound ones (Microsoft Authenticator, Windows, FIDO2 hardware keys)."
     },
     {
       "title": "FDA approves Orzeyful, the first drug treating narcolepsy type 1 as a whole disorder",
@@ -91,7 +98,8 @@
       "pillar": "health",
       "why": "It targets the orexin loss that causes the disease rather than treating individual symptoms.",
       "published": "2026-08-05",
-      "score": 78
+      "score": 78,
+      "brief": "The FDA approved Orzeyful (oveporexton) tablets for narcolepsy type 1 in adults — the first medicine approved for the condition as a complete disorder and the first to act on the orexin system. Narcolepsy type 1 is caused by the loss of the brain cells that produce orexin, the messenger that regulates wakefulness, sleep and muscle tone; instead of masking individual symptoms with stimulants or sedatives, Orzeyful directly activates the same receptor orexin normally stimulates. It is taken as an oral tablet twice a day and was developed by Takeda.\n\nApproval rests on two randomized, double-blind, placebo-controlled 12-week trials enrolling 273 adults with narcolepsy type 1. Patients on the 2 mg dose stayed awake better during the day, reported substantially less daytime sleepiness, had significantly fewer cataplexy episodes, and improved across the full range of symptoms including sleep paralysis, hallucinations and disrupted nighttime sleep. The most common side effects were insomnia, more frequent and urgent urination, and increased saliva production, and few participants stopped treatment because of side effects.\n\nCaveats worth noting: the evidence covers only 12 weeks in a modest sample, the drug has not been studied in anyone under 18, and it should not be taken with strong CYP3A inhibitors. It has been recommended for scheduling under the Controlled Substances Act, so it can only be marketed after the DEA scheduling decision. Anyone with narcolepsy type 1 should ask their sleep specialist whether it fits their situation."
     },
     {
       "title": "FDA approves Lipfendra, the first PCSK9 cholesterol inhibitor available as a tablet",
@@ -100,7 +108,8 @@
       "pillar": "health",
       "why": "PCSK9 treatment no longer requires injections; it is now a once-daily oral tablet.",
       "published": "2026-07-17",
-      "score": 88
+      "score": 88,
+      "brief": "The FDA approved Lipfendra (enlicitide) as the first oral inhibitor of PCSK9, taken as a once-daily tablet as an adjunct to diet and exercise to lower LDL cholesterol in adults with hypercholesterolemia, including heterozygous familial hypercholesterolemia (HeFH). Until now, every PCSK9 inhibitor required injection; this approval adds a pill for people who still need more LDL reduction despite existing therapy. The drug was developed by Merck.\n\nThe approval is based on two randomized, double-blind, placebo-controlled trials involving 3,207 adults already on maximally tolerated statins. In the trial of people with established atherosclerotic cardiovascular disease or high risk for it (mean baseline LDL 96 mg/dL), Lipfendra produced an average 56% reduction in LDL at week 24 versus placebo; in the HeFH trial (mean baseline LDL 119 mg/dL), the reduction averaged 59%. Side effects were comparable to placebo in the first trial, with diarrhea and dizziness occurring more often in the second, and discontinuation rates were similar in both.\n\nWhat this changes: patients who need PCSK9-class LDL reduction but dislike or struggle with injections now have a tablet option — though it is still an add-on, not a replacement for diet, exercise and statins. One thing to keep in mind: the approval endpoint is LDL reduction at 24 weeks, a surrogate, so long-term heart-attack-and-stroke outcome data for this pill are not yet part of the record. Ask your clinician whether it fits your treatment plan."
     }
   ]
 }
