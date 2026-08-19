@@ -45,6 +45,23 @@ check("extract: bare list is normalised",
 check("extract: refuses garbage", publish.extract_json("no json here at all") is None)
 
 
+# --- the run-output file embeds the prompt, schema example and all ----------
+# Hermes' cron runtime records "## Prompt" (the entire skill, which itself contains a
+# worked JSON schema AND the characters that open a fence) above "## Response". Read
+# the file naively and you can publish the schema example as though it were content.
+
+CRON_FILE = '# Cron Job: signal-harvest\n\n## Prompt\n\nAnswer with a single fenced ```json block. Prose around it is fine.\n\n```json\n{"items": [{"title": "required - the headline", "url": "required - absolute https link",\n            "source": "required", "pillar": "required", "score": 0}]}\n```\n\n## Response\n\nI searched 40 sources; one cleared the bar.\n\n```json\n{"items": [{"title": "The real finding", "url": "https://e.org/real",\n            "source": "s", "pillar": "health", "score": 88}]}\n```\n'
+
+got = publish.extract_json(CRON_FILE)
+check("cron file: JSON is found at all", got is not None)
+title = ((got or {}).get("items") or [{}])[0].get("title", "")
+check("cron file: takes the answer, not the schema example", title == "The real finding", title)
+check("cron file: the schema example never leaks through",
+      "required" not in json.dumps(got or {}))
+check("cron file: prose mentioning a fence mid-sentence is not treated as data",
+      publish.response_section(CRON_FILE).count("required") == 0)
+
+
 # --- a lookalike domain must not be able to hide ----------------------------
 
 ascii_host, non_ascii = publish.host_of("https://сochrane.org/x")   # Cyrillic es

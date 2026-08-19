@@ -140,6 +140,19 @@ def run_harvest():
     return True, ""
 
 
+def response_section(text):
+    """Just the model's answer, discarding the prompt the cron runtime records above it.
+
+    The run-output file is "# Cron Job / ## Prompt / ## Response", and the prompt
+    contains the whole skill - including a worked JSON schema example and the literal
+    characters that open a fenced block. Parsing the file as a whole risks lifting
+    that example and offering "required - the headline, plain text" as a real item.
+    Only ever read what came after the answer began.
+    """
+    marker = re.search(r"^##\s+Response\s*$", text, re.M)
+    return text[marker.end():] if marker else text
+
+
 def extract_json(text):
     """Pull the payload out of a model's answer.
 
@@ -147,14 +160,18 @@ def extract_json(text):
     the reader an edit, so try the whole thing, then each fenced block, then the
     outermost brace or bracket span. A bare list is normalised into the
     {"items": [...]} shape render.py expects.
+
+    Fences must open and close at the start of a line: prose that merely mentions a
+    fence mid-sentence is discussion, not data.
     """
+    text = response_section(text)
     def shape(obj):
         if isinstance(obj, list):
             return {"items": obj}
         return obj if isinstance(obj, dict) else None
 
     candidates = [text]
-    candidates += re.findall(r"```(?:json)?\s*(.*?)```", text, re.S)
+    candidates += re.findall(r"^```(?:json)?[ \t]*$\n(.*?)^```[ \t]*$", text, re.S | re.M)
     for opener, closer in (("{", "}"), ("[", "]")):
         i, j = text.find(opener), text.rfind(closer)
         if i != -1 and j > i:
