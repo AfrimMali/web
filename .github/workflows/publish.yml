@@ -7,23 +7,39 @@ on:
     - cron: "0 6 * * *"      # rebuild daily once Hermes is writing items.json
   workflow_dispatch:
 
+# contents:read only. The credentials that can publish to the domain live on the
+# deploy job alone, so a compromised build step cannot reach them.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # false, per GitHub's Pages guidance: a second push must not kill a production
+  # deployment part-way through.
+  cancel-in-progress: false
 
 jobs:
+  # The gate. render.py's sanitiser is what stands between scraped input and the
+  # page, so a failed probe has to stop the publish, not merely report it.
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - run: python tests/audit_check.py
+      - run: python tests/sec_check.py
+
   build:
+    needs: test
     # Pinned, not ubuntu-latest: the label is mutable and the image moves under you.
     runs-on: ubuntu-24.04
     steps:
-      # Pinned to commit SHAs, not tags. Tags are mutable, and this workflow
-      # holds pages:write and id-token:write - a moved tag could publish
-      # arbitrary content to the domain. Dependabot keeps them current.
+      # Pinned to commit SHAs, not tags. Tags are mutable, and a moved tag in the
+      # deploy chain could publish arbitrary content to the domain. Dependabot
+      # keeps them current.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -38,6 +54,11 @@ jobs:
 
   deploy:
     needs: build
+    # The only job that may publish.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

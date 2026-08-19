@@ -16,9 +16,8 @@ import hashlib
 import html
 import json
 import re
-import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -40,8 +39,8 @@ REQUIRED = ("title", "url", "source", "pillar")
 _STRIP = re.compile(
     "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"      # control characters
     "\ud800-\udfff"                              # lone surrogates
-    "​"                                     # zero-width space
-    "‪-‮⁦-⁩"                 # bidi overrides / isolates
+    "\u200b"                                     # zero-width space
+    "\u202a-\u202e\u2066-\u2069"                 # bidi overrides / isolates
     "]")
 
 # A runaway scrape should degrade the page, not replace it.
@@ -151,12 +150,25 @@ def rfc3339(value):
     return (d or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def write(path, text):
+    """Write LF, always.
+
+    The CSP hashes are computed from the template held in memory, where newlines
+    are LF. write_text() defaults to newline=None, which on Windows translates
+    them to CRLF on the way to disk - so the bytes the browser hashes are not the
+    bytes that were hashed here, and it blocks the style block and every inline
+    script. CI builds on Linux and never saw it; a local --serve did.
+    """
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
 # ---------- markup ----------
 
 def render_item(item):
     bits = [esc(item["source"])]
-    if short_date(item.get("published")):
-        bits.append(short_date(item["published"]))
+    when = short_date(item.get("published"))
+    if when:
+        bits.append(when)
     meta = ", ".join(bits)
     why = (f'\n        <p class="why">{esc(item["why"])}</p>'
            if item.get("why") else "")
@@ -326,8 +338,9 @@ def security_txt(site):
     if not contact:
         return None
     base = site["url"].rstrip("/")
-    expires = datetime.now(timezone.utc).replace(microsecond=0)
-    expires = expires.replace(year=expires.year + 1)
+    # timedelta, not replace(year=+1): the latter raises ValueError on 29 February
+    # and would fail the daily build outright, once every four years.
+    expires = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=365)
     return (f"Contact: mailto:{contact}\n"
             f"Expires: {expires.strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
             f"Preferred-Languages: {site.get('lang', 'en')}\n"
@@ -380,7 +393,7 @@ def main():
 
     DIST.mkdir(exist_ok=True)
 
-    (DIST / "index.html").write_text(build_page(
+    write(DIST / "index.html", build_page(
         site, tpl,
         page_title=site["title"],
         desc=site["tagline"],
@@ -388,28 +401,27 @@ def main():
         main=render_sections(recent, pillars) or '<p class="empty">Nothing cleared the bar today.</p>',
         items=recent,
         lede=lede,
-    ), encoding="utf-8")
+    ))
 
-    (DIST / "archive.html").write_text(build_page(
+    write(DIST / "archive.html", build_page(
         site, tpl,
         page_title=f"Archive — {site['title']}",
         desc=f"Everything published on {site['title']}, newest first.",
         path="archive.html",
         main=render_archive(items),
         items=items,
-    ), encoding="utf-8")
+    ))
 
-    (DIST / "feed.xml").write_text(atom(site, items), encoding="utf-8")
-    (DIST / "sitemap.xml").write_text(sitemap(site, items, payload), encoding="utf-8")
-    (DIST / "robots.txt").write_text(
-        f"User-agent: *\nAllow: /\nSitemap: {site['url'].rstrip('/')}/sitemap.xml\n",
-        encoding="utf-8")
-    (DIST / ".nojekyll").write_text("", encoding="utf-8")
+    write(DIST / "feed.xml", atom(site, items))
+    write(DIST / "sitemap.xml", sitemap(site, items, payload))
+    write(DIST / "robots.txt",
+          f"User-agent: *\nAllow: /\nSitemap: {site['url'].rstrip('/')}/sitemap.xml\n")
+    write(DIST / ".nojekyll", "")
 
     sec = security_txt(site)
     if sec:
         (DIST / ".well-known").mkdir(exist_ok=True)
-        (DIST / ".well-known" / "security.txt").write_text(sec, encoding="utf-8")
+        write(DIST / ".well-known" / "security.txt", sec)
 
     print(f"wrote {DIST}/ — index, archive, feed, sitemap, robots")
 
@@ -417,7 +429,7 @@ def main():
         import http.server, socketserver, os
         os.chdir(DIST)
         print("http://localhost:8000  (ctrl-c to stop)")
-        socketserver.TCPServer(("", 8000),
+        socketserver.TCPServer(("127.0.0.1", 8000),
                                http.server.SimpleHTTPRequestHandler).serve_forever()
 
 

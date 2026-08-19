@@ -18,6 +18,14 @@ python render.py --serve      # builds, serves http://localhost:8000
 
 That's the whole toolchain. There is nothing to install.
 
+Two suites cover the sanitiser and the generated CSP. Each prints its own pass
+count, and CI runs both and refuses to publish if either fails:
+
+```bash
+python tests/audit_check.py
+python tests/sec_check.py
+```
+
 Before deploying, set `url` in `site.json` to your real domain — canonical tags,
 the sitemap and the feed all derive from it.
 
