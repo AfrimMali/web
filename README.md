@@ -38,7 +38,29 @@ For a custom domain, add it under Settings → Pages and put the same value in
 `site.json`. A real domain matters more for search visibility than anything in the
 markup.
 
-## The contract with Hermes (Milestone 2 preview)
+## The daily loop
+
+Hermes runs on its own schedule each morning under a dedicated profile whose only
+capability is web search and extraction — no shell, no file access, no memory, no
+ability to edit its own instruction or reschedule itself. It cannot publish; it can
+only propose. Its answer is saved by its own cron runtime.
+
+Then you double-click **publish.bat** (or run `python publish.py`):
+
+- it reads the newest proposal and pulls the JSON out of whatever prose surrounds it
+- every item is shown as it will appear, with its score, its claimed source, and the
+  **real domain** of the link in punycode — a Cyrillic `сochrane.org` is pixel-identical
+  to the real thing in a browser, and this is where you would catch it
+- anything `--validate` rejects is greyed out with the reason
+- untick anything you dislike; the preview on the right is the actual page
+- **Publish** writes `content/items.json`, commits that one path and pushes. Nothing else
+  is ever staged, and it refuses outright if anything else is already staged.
+- **Roll back** restores the previously published content the same way
+
+The review page binds to loopback only and needs a session token, because a process that
+can publish to a live site should not be reachable by a page you happen to have open.
+
+## The contract with Hermes
 
 The site reads exactly one file. Hermes writes it, `render.py` renders it, and
 neither knows the other exists. If your scraper breaks, the last good

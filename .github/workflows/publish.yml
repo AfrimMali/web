@@ -31,6 +31,7 @@ jobs:
 
       - run: python tests/audit_check.py
       - run: python tests/sec_check.py
+      - run: python tests/publish_check.py
 
   build:
     needs: test

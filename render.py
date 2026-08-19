@@ -301,6 +301,32 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
                   lambda m: values.get(m.group(0), m.group(0)), tpl)
 
 
+def build_index(site, tpl, items):
+    """The index page exactly as it ships, plus the items it actually shows.
+
+    Shared with publish.py so the review preview cannot drift from what the build
+    produces. A preview that quietly differs from production is worse than no
+    preview at all - it teaches you to trust the wrong thing.
+    """
+    recent = items[: site.get("index_items", 20)]
+
+    lede = f"""<p class="lede">{esc(site['tagline'])}
+    <button class="more" id="more" type="button" aria-expanded="false"
+            aria-controls="about">More</button></p>
+  <div class="about" id="about" hidden>{esc(site['about'])}</div>"""
+
+    page = build_page(
+        site, tpl,
+        page_title=site["title"],
+        desc=site["tagline"],
+        path="index.html",
+        main=render_sections(recent, site["pillars"]) or '<p class="empty">Nothing cleared the bar today.</p>',
+        items=recent,
+        lede=lede,
+    )
+    return page, recent
+
+
 # ---------- feeds ----------
 
 def atom(site, items):
@@ -384,24 +410,10 @@ def main():
         print("warning: nothing to publish", file=sys.stderr)
 
     tpl = TEMPLATE.read_text(encoding="utf-8")
-    recent = items[: site.get("index_items", 20)]
-
-    lede = f"""<p class="lede">{esc(site['tagline'])}
-    <button class="more" id="more" type="button" aria-expanded="false"
-            aria-controls="about">More</button></p>
-  <div class="about" id="about" hidden>{esc(site['about'])}</div>"""
-
     DIST.mkdir(exist_ok=True)
 
-    write(DIST / "index.html", build_page(
-        site, tpl,
-        page_title=site["title"],
-        desc=site["tagline"],
-        path="index.html",
-        main=render_sections(recent, pillars) or '<p class="empty">Nothing cleared the bar today.</p>',
-        items=recent,
-        lede=lede,
-    ))
+    index_html, recent = build_index(site, tpl, items)
+    write(DIST / "index.html", index_html)
 
     write(DIST / "archive.html", build_page(
         site, tpl,
