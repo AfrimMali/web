@@ -47,6 +47,11 @@ TRACKED = "content/items.json"
 PORT = 8765
 IDLE_SECONDS = 30 * 60
 
+# The server is threaded, so two requests can arrive at once. The button disables
+# itself after a click, but that is the browser's promise, not ours - a second tab
+# holding the same token would otherwise race this one through the git index.
+PUBLISH_LOCK = threading.Lock()
+
 
 # ---------- finding what Hermes said ----------
 
@@ -154,6 +159,18 @@ def source_matches_host(item):
     return any(claimed in l or l in claimed for l in labels if len(l) > 2)
 
 
+def display_safe(item):
+    """Sanitised copy of a rejected item, purely so it can be shown safely.
+
+    Reuses render.clean() rather than adding a second sanitiser; the cap falls back
+    to the title limit for fields LIMITS does not name, including url.
+    """
+    if not isinstance(item, dict):
+        return {}
+    return {k: (render.clean(v, render.LIMITS.get(k, 300)) if isinstance(v, str) else v)
+            for k, v in item.items()}
+
+
 def judge(payload, site):
     """Per-item verdicts, with validate() as the only authority on what may ship.
 
@@ -186,7 +203,11 @@ def judge(payload, site):
             clean, ok = None, False
             reason = one.getvalue().strip().split(":", 1)[-1].strip() or "rejected"
 
-        shown = clean or (item if isinstance(item, dict) else {})
+        # A rejected item never went through clean(), so its bidi overrides and
+        # unbounded lengths would reach the review page unaltered - the one screen
+        # where a human is deciding what to trust, and so the one place hostile text
+        # most wants to be misread. Sanitise for display even though it cannot ship.
+        shown = clean or display_safe(item)
         ascii_host, non_ascii = host_of(shown.get("url"))
         rows.append({
             "n": n,
@@ -207,9 +228,18 @@ def judge(payload, site):
 
 # ---------- git guards ----------
 
+GIT_TIMEOUT = 120
+
+
 def git(*args, raw=False):
-    r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
-                       text=True, encoding="utf-8")
+    try:
+        r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
+                           text=True, encoding="utf-8", timeout=GIT_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        # Usually a credential helper waiting on a dialog nobody can see from here.
+        raise RuntimeError(
+            f"git {args[0]} did not finish within {GIT_TIMEOUT}s - it is probably "
+            "waiting on a credential prompt. Run `git push` once in a terminal, then retry.")
     if r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {(r.stderr or r.stdout).strip()}")
     out = r.stdout or ""
@@ -239,18 +269,44 @@ def write_items(items):
     render.write(ITEMS, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
+def unpushed_count():
+    """Commits sitting on main that never reached the remote."""
+    try:
+        return int(git("rev-list", "--count", "@{u}..HEAD") or 0)
+    except (RuntimeError, ValueError):
+        return 0                       # no upstream configured; nothing to reconcile
+
+
 def commit_tracked_only(message):
-    """Stage our one path, prove it is the only one staged, commit and push."""
+    """Stage our one path, prove it is the only one staged, commit and push.
+
+    Commit and push are reported separately on purpose. They used to be one step, so
+    a push that failed after a successful commit left the content committed locally
+    and absent from the site - and the next attempt said "nothing changed", which was
+    exactly backwards. An unpushed commit is now finished rather than misreported.
+    """
     git("add", "--", TRACKED)
     after = git("diff", "--cached", "--name-only").splitlines()
+
     if not [n for n in after if n]:
+        if unpushed_count():
+            git("push")
+            return git("rev-parse", "--short", "HEAD") + " (pushed an earlier commit that had not reached the site)"
         raise RuntimeError("nothing changed - that is already what the site is publishing.")
+
     if not staged_exactly_ours(after):
         git("reset", "--", TRACKED)
         raise RuntimeError(f"refusing to commit: staged set was {after}, expected [{TRACKED}]")
+
     git("commit", "-m", message)
-    git("push")
-    return git("rev-parse", "--short", "HEAD")
+    sha = git("rev-parse", "--short", "HEAD")
+    try:
+        git("push")
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"committed locally as {sha}, but the push failed and the site is unchanged: "
+            f"{exc} Fix the connection and publish again - it will finish this commit.")
+    return sha
 
 
 def publish_items(items):
@@ -430,6 +486,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self._token_ok(body.get("token")):
             return self._deny("missing or bad session token")
 
+        if not PUBLISH_LOCK.acquire(blocking=False):
+            return self._send(json.dumps({"ok": False, "message": "already publishing."}),
+                              "application/json", code=409)
         try:
             action = body.get("action")
             if action == "publish":
@@ -454,6 +513,8 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:                    # surfaced in the page, never swallowed
             self._send(json.dumps({"ok": False, "message": str(exc)}),
                        "application/json", code=400)
+        finally:
+            PUBLISH_LOCK.release()
 
 
 def serve():

@@ -132,6 +132,96 @@ check("preview: byte-identical to what render.py ships", shipped == previewed,
       "" if shipped == previewed else f"{len(shipped)} vs {len(previewed)} chars")
 
 
+# --- what a REJECTED item can put on the review page -------------------------
+# Rejected items are displayed, and display used to bypass clean() entirely: a bidi
+# override survived into the page, and nothing capped the length. The review screen
+# is where a human judges trust, so it must not be the one screen that renders raw.
+
+RLO_ITEM = item(title="Harmless" + RLO + "gnp.exe", url="/relative", why="a" + RLO + "b")
+HUGE_ITEM = item(title="A" * 200_000, url="/relative2", why="B" * 200_000)
+rows, _ = publish.judge({"items": [RLO_ITEM, HUGE_ITEM]}, site)
+check("display: rejected item is still rejected", all(not r["ok"] for r in rows))
+check("display: bidi stripped from a rejected title",
+      all(RLO not in r["title"] and RLO not in r["why"] for r in rows))
+check("display: rejected title capped at 300",
+      all(len(r["title"]) <= 300 for r in rows), f"max {max(len(r['title']) for r in rows)}")
+markup = publish.row_markup(rows)
+check("display: no bidi anywhere in the rendered page", RLO not in markup)
+check("display: page stays bounded for a hostile proposal", len(markup) < 20_000,
+      f"{len(markup):,} chars")
+
+
+# --- the git path, exercised in a throwaway repo so CI covers it too ---------
+# These functions touch git, so they were only ever tested by hand. A throwaway repo
+# with a local bare remote needs no network and runs anywhere, which makes the guards
+# regression-proof instead of merely once-verified.
+import subprocess                                                  # noqa: E402
+
+sandbox = Path(tempfile.mkdtemp())
+remote, work = sandbox / "remote.git", sandbox / "work"
+
+
+def g(*a, cwd=None):
+    r = subprocess.run(["git", *a], cwd=str(cwd or work), capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git {' '.join(a)}: {r.stderr.strip()}")
+    return r.stdout.strip()
+
+
+g("init", "--bare", "-q", "-b", "main", str(remote), cwd=sandbox)
+work.mkdir()
+g("init", "-q", "-b", "main")
+g("config", "user.email", "t@example.invalid")
+g("config", "user.name", "t")
+(work / "content").mkdir()
+(work / "content" / "items.json").write_text('{"items": []}\n', encoding="utf-8")
+(work / "unrelated.txt").write_text("x\n", encoding="utf-8")
+g("add", "-A")
+g("commit", "-qm", "base")
+g("remote", "add", "origin", str(remote))
+g("push", "-qu", "origin", "main")
+
+real_root, real_items = publish.ROOT, publish.ITEMS
+try:
+    publish.ROOT, publish.ITEMS = work, work / "content" / "items.json"
+
+    good = [item(url="https://e.org/one"), item(url="https://e.org/two")]
+    publish.publish_items(good)
+    touched = g("show", "--format=", "--name-only", "HEAD").split()
+    check("git: publish commits exactly one path", touched == ["content/items.json"], str(touched))
+    check("git: it reached the remote", g("rev-parse", "HEAD") == g("rev-parse", "origin/main"))
+    check("git: nothing left staged", g("diff", "--cached", "--name-only") == "")
+
+    # an unrelated staged change must stop the publish dead
+    (work / "unrelated.txt").write_text("tampered\n", encoding="utf-8")
+    g("add", "unrelated.txt")
+    try:
+        publish.publish_items([item(url="https://e.org/three")])
+        check("git: refuses when something else is staged", False, "it published anyway")
+    except RuntimeError as exc:
+        check("git: refuses when something else is staged", "already staged" in str(exc))
+    g("reset", "-q")
+    g("checkout", "-q", "--", "unrelated.txt")
+
+    # a commit that never reached the remote must be finished, not called a no-op
+    (work / "content" / "items.json").write_text('{"items": [1]}\n', encoding="utf-8")
+    g("add", "--", "content/items.json")
+    g("commit", "-qm", "stranded")
+    check("git: an unpushed commit is detected", publish.unpushed_count() == 1,
+          f"got {publish.unpushed_count()}")
+    publish.publish_items(good)
+    check("git: unpushed commit gets pushed, not reported as 'nothing changed'",
+          g("rev-parse", "HEAD") == g("rev-parse", "origin/main"))
+
+    before = g("rev-parse", "HEAD")
+    publish.rollback()
+    check("git: rollback commits one path and pushes",
+          g("rev-parse", "HEAD") != before
+          and g("rev-parse", "HEAD") == g("rev-parse", "origin/main"))
+finally:
+    publish.ROOT, publish.ITEMS = real_root, real_items
+
+
 width = max(len(n) for n, _, _ in results)
 for name, passed, detail in results:
     print(f"  [{'PASS' if passed else 'FAIL'}] {name.ljust(width)}  {detail}")
