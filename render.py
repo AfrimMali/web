@@ -44,7 +44,7 @@ _STRIP = re.compile(
     "]")
 
 # A runaway scrape should degrade the page, not replace it.
-LIMITS = {"title": 300, "source": 120, "why": 500}
+LIMITS = {"title": 300, "source": 120, "why": 500, "brief": 2500}
 
 
 def clean(value, limit):
@@ -173,9 +173,54 @@ def render_item(item):
     why = (f'\n        <p class="why">{esc(item["why"])}</p>'
            if item.get("why") else "")
     return f"""      <li class="item">
-        <a class="t" href="{esc(item['url'])}" rel="noopener">{esc(item['title'])}</a>
+        <a class="t" href="/items/{slug_for(item)}.html">{esc(item['title'])}</a>
         <span class="meta">({meta})</span>{why}
       </li>"""
+
+
+def slug_for(item):
+    """Stable, readable path for an item's own page.
+
+    The title makes it readable; a short hash of the url makes it unique and keeps it
+    stable when two findings share a headline. Changing this function moves every page
+    on the site, so treat its output as a permanent contract rather than a detail.
+    """
+    base = re.sub(r"[^a-z0-9]+", "-", str(item["title"]).lower()).strip("-")[:60].strip("-")
+    tag = hashlib.sha256(str(item["url"]).encode()).hexdigest()[:6]
+    return f"{base or 'item'}-{tag}"
+
+
+def render_brief(item):
+    """The item's own prose, as paragraphs.
+
+    This is Hermes' writing, never the source's - reproducing a journal's text would be
+    infringement, and the harvest instruction forbids it. Falls back to the one-line
+    takeaway for items published before briefs existed.
+    """
+    text = str(item.get("brief") or item.get("why") or "")
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    return "\n".join(f"      <p>{esc(p)}</p>" for p in paras)
+
+
+def build_item(site, tpl, item):
+    """One finding on its own page, so a click keeps the reader here."""
+    label = site["pillars"].get(item["pillar"], item["pillar"])
+    when = short_date(item.get("published"))
+    meta = " · ".join(x for x in (esc(label), esc(when)) if x)
+    main = f"""    <article class="entry">
+      <p class="stamp">{meta}</p>
+      <h1>{esc(item['title'])}</h1>
+{render_brief(item)}
+      <p class="origin"><a href="{esc(item['url'])}" rel="noopener">Read the original at {esc(item['source'])} &#8594;</a></p>
+    </article>"""
+    return build_page(
+        site, tpl,
+        page_title=f"{item['title']} — {site['title']}",
+        desc=str(item.get("why") or item["title"]),
+        path=f"items/{slug_for(item)}.html",
+        main=main,
+        items=[item],
+    )
 
 
 def render_sections(items, pillars):
@@ -194,7 +239,9 @@ def render_archive(items):
     buckets = {}
     for item in items:
         d = parse_date(item.get("published"))
-        buckets.setdefault(d.strftime("%B %Y") if d else "Undated", []).append(item)
+        # %-d is glibc-only, so build the day number by hand as short_date() does
+        label = f"{d.day} {d:%B %Y}" if d else "Undated"
+        buckets.setdefault(label, []).append(item)
 
     out = []
     for label, group in buckets.items():
@@ -340,6 +387,7 @@ def atom(site, items):
     <updated>{rfc3339(i.get('published'))}</updated>
     <author><name>{esc(i['source'])}</name></author>
     <summary>{esc(i.get('why', ''))}</summary>
+    <content type="text">{esc(i.get('brief') or i.get('why', ''))}</content>
   </entry>""" for i in items[:50])
 
     return f"""<?xml version="1.0" encoding="utf-8"?>
@@ -383,7 +431,7 @@ def sitemap(site, items, payload=None):
     day = (newest or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
     urls = "".join(
         f"\n  <url><loc>{base}{p}</loc><lastmod>{day}</lastmod></url>"
-        for p in ("/", "/archive.html")
+        for p in ["/", "/archive.html"] + [f"/items/{slug_for(i)}.html" for i in items]
     )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -423,6 +471,11 @@ def main():
         main=render_archive(items),
         items=items,
     ))
+
+    pages = DIST / "items"
+    pages.mkdir(exist_ok=True)
+    for item in items:
+        write(pages / f"{slug_for(item)}.html", build_item(site, tpl, item))
 
     write(DIST / "feed.xml", atom(site, items))
     write(DIST / "sitemap.xml", sitemap(site, items, payload))

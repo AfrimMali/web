@@ -36,6 +36,51 @@
       "why": "If you have used a desogestrel pill or etonogestrel implant or ring for a year or more, the meningioma risk rises with duration (about 1 extra case per 67,300 users, and 3.3-fold higher after other progestogens) — these contraceptives are now contraindicated after any meningioma, and the risk returns to baseline a year after stopping.",
       "published": "2026-08-06",
       "score": 72
+    },
+    {
+      "title": "DUMOS nine-drawer dressers recalled for tip-over and entrapment risk to children",
+      "url": "https://www.cpsc.gov/Recalls/2026/DUMOS-Nine-Drawer-Dressers-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Tip-Over-and-Entrapment-Hazards-Violate-Mandatory-Standard-for-Clothing-Storage-Units",
+      "source": "CPSC",
+      "pillar": "practical",
+      "why": "If yours is not anchored to the wall, put it out of children's reach and claim the full refund.",
+      "published": "2026-08-13",
+      "score": 85
+    },
+    {
+      "title": "Hampton Bay Halwin 52-inch ceiling fans recalled after blades separated from the motor",
+      "url": "https://www.cpsc.gov/Recalls/2026/Hampton-Bay-Halwin-52-Inch-Ceiling-Fans-Recalled-Due-to-Impact-and-Injury-Hazards-Manufactured-by-Youngo-Limited",
+      "source": "CPSC",
+      "pillar": "practical",
+      "why": "Stop using the fan and claim either a refund or a Home Depot gift card from Youngo.",
+      "published": "2026-08-13",
+      "score": 80
+    },
+    {
+      "title": "Microsoft Entra ID makes passkeys the default and begins retiring SMS and voice sign-in",
+      "url": "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-sms-voice-retirement",
+      "source": "Microsoft Learn",
+      "pillar": "technology",
+      "why": "If your organisation still signs in by SMS or voice code, move users to passkeys before 1 September or they are auto-enrolled and prompted.",
+      "published": "2026-08-10",
+      "score": 84
+    },
+    {
+      "title": "FDA approves Orzeyful, the first drug treating narcolepsy type 1 as a whole disorder",
+      "url": "https://www.fda.gov/news-events/press-announcements/fda-approves-first-drug-treat-full-range-narcolepsy-type-1-symptoms",
+      "source": "FDA",
+      "pillar": "health",
+      "why": "It targets the orexin loss that causes the disease rather than treating individual symptoms.",
+      "published": "2026-08-05",
+      "score": 78
+    },
+    {
+      "title": "FDA approves Lipfendra, the first PCSK9 cholesterol inhibitor available as a tablet",
+      "url": "https://www.fda.gov/news-events/press-announcements/fda-approves-first-oral-pcsk9-inhibitor-lower-ldl-cholesterol-adults-high-cholesterol",
+      "source": "FDA",
+      "pillar": "health",
+      "why": "PCSK9 treatment no longer requires injections; it is now a once-daily oral tablet.",
+      "published": "2026-07-17",
+      "score": 88
     }
   ]
 }

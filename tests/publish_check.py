@@ -4,7 +4,7 @@ Everything here is pure or in-memory: no git, no network, no server. The guards
 that matter for committing are written as pure functions precisely so they can be
 tested without a repository. Run from the repo root.
 """
-import contextlib, io, json, sys, tempfile
+import contextlib, io, json, re, sys, tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -196,6 +196,64 @@ check("empty: a harvest that found nothing yields no rows",
 allbad_rows, _ = publish.judge({"items": [item(url="/relative")]}, site)
 check("empty: an all-rejected harvest still explains itself",
       len(allbad_rows) == 1 and not allbad_rows[0]["ok"] and allbad_rows[0]["reason"])
+
+
+# --- publishing must add to the record, never replace it --------------------
+# This replaced content/items.json outright, so every publish destroyed the previous
+# day and the archive page archived nothing. The bug was invisible until someone
+# looked for yesterday.
+
+old = [item(url="https://e.org/old1"), item(url="https://e.org/old2")]
+new = [item(url="https://e.org/new1"), item(url="https://e.org/old1")]
+
+real_items = publish.ITEMS
+scratch = Path(tempfile.mkdtemp()) / "items.json"
+try:
+    publish.ITEMS = scratch
+    scratch.write_text(json.dumps({"items": old}), encoding="utf-8")
+    merged, added = publish.merge_items(new)
+    urls = [i["url"] for i in merged]
+    check("merge: yesterday survives today", "https://e.org/old2" in urls)
+    check("merge: today is added", "https://e.org/new1" in urls)
+    check("merge: only the genuinely new count", added == 1, f"added={added}")
+    check("merge: a repeated url is not duplicated", urls.count("https://e.org/old1") == 1)
+    check("merge: newest first", urls[0] == "https://e.org/new1")
+
+    scratch.write_text(json.dumps({"items": old}), encoding="utf-8")
+    _, none_added = publish.merge_items([item(url="https://e.org/old1")])
+    check("merge: re-publishing the same harvest adds nothing", none_added == 0)
+
+    scratch.write_text("{ this is not json", encoding="utf-8")
+    recovered, n = publish.merge_items(new)
+    check("merge: a corrupt file does not lose today's work", n == len(new))
+finally:
+    publish.ITEMS = real_items
+
+
+# --- item pages: the url is a promise, and it must not move ------------------
+
+a = {"title": "CPSC recalls 250,000 mini-fridges", "url": "https://e.org/a"}
+check("slug: readable", render.slug_for(a).startswith("cpsc-recalls-250-000-mini-fridges"),
+      render.slug_for(a))
+check("slug: stable across calls", render.slug_for(a) == render.slug_for(dict(a)))
+check("slug: same headline, different source is a different page",
+      render.slug_for(a) != render.slug_for({**a, "url": "https://e.org/b"}))
+check("slug: url-safe", re.fullmatch(r"[a-z0-9-]+", render.slug_for(a)) is not None)
+check("slug: a title with no usable characters still yields a page",
+      render.slug_for({"title": "!!!", "url": "https://e.org/c"}).startswith("item-"))
+
+page = render.build_item(site, render.TEMPLATE.read_text(encoding="utf-8"),
+                         {"title": "T", "url": "https://src.example/x", "source": "Src",
+                          "pillar": "health", "published": "2026-08-19",
+                          "brief": "Para one." + chr(10) * 2 + "Para two."})
+check("item page: the brief renders as separate paragraphs", page.count("<p>Para") == 2)
+check("item page: credits and links the source",
+      'href="https://src.example/x"' in page and "Read the original at Src" in page)
+check("item page: falls back to the one-liner when there is no brief",
+      "<p>just this</p>" in render.build_item(
+          site, render.TEMPLATE.read_text(encoding="utf-8"),
+          {"title": "T", "url": "https://e.org/d", "source": "S", "pillar": "health",
+           "why": "just this"}))
 
 
 # --- the git path, exercised in a throwaway repo so CI covers it too ---------

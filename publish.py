@@ -283,6 +283,7 @@ def judge(payload, site):
             "item": clean,
             "title": str(shown.get("title") or "(no title)"),
             "why": str(shown.get("why") or ""),
+            "brief": str(shown.get("brief") or ""),
             "pillar": str(shown.get("pillar") or ""),
             "score": shown.get("score", ""),
             "source": str(shown.get("source") or ""),
@@ -326,6 +327,26 @@ def index_is_clean(staged_names):
 def staged_exactly_ours(staged_names):
     """True when the commit about to be made touches our path and nothing else."""
     return [n for n in staged_names if n] == [TRACKED]
+
+
+def merge_items(new_items):
+    """Today's findings on top of everything published before, newest first.
+
+    This used to replace the file outright, which quietly destroyed a day's work on
+    every publish - the archive page was archiving nothing. Items are keyed by url and
+    the existing entry wins, so re-running a harvest cannot rewrite the record of
+    something already published.
+    """
+    existing = []
+    if ITEMS.exists():
+        try:
+            existing = json.loads(ITEMS.read_text(encoding="utf-8")).get("items", [])
+        except (json.JSONDecodeError, OSError):
+            existing = []
+
+    seen = {i.get("url") for i in existing if isinstance(i, dict)}
+    added = [i for i in new_items if i.get("url") not in seen]
+    return added + existing, len(added)
 
 
 def write_items(items):
@@ -382,9 +403,13 @@ def publish_items(items):
         raise RuntimeError(
             "something else is already staged: " + ", ".join(n for n in before if n)
             + ". Commit or unstage it first - an approval here must not carry other changes.")
-    write_items(items)
+    merged, added = merge_items(items)
+    if not added:
+        raise RuntimeError("every one of those is already published - nothing new to add.")
+    write_items(merged)
     return commit_tracked_only(
-        f"content: {len(items)} item(s) for {datetime.now(timezone.utc):%Y-%m-%d}")
+        f"content: +{added} item(s) for {datetime.now(timezone.utc):%Y-%m-%d}"
+        f"  ({len(merged)} total)")
 
 
 def rollback():
@@ -434,6 +459,9 @@ def row_markup(rows):
             flags.append('<span class="flag">source does not match domain</span>')
         if not r["ok"]:
             flags.append(f'<span class="bad">{html.escape(r["reason"])}</span>')
+        paras = [x.strip() for x in re.split(r"\n\s*\n", r["brief"]) if x.strip()]
+        brief = ("".join(f'<p class="brief">{html.escape(x)}</p>' for x in paras)
+                 if paras else "")
         out.append(f"""
   <li class="row {'ok' if r['ok'] else 'no'}">
     <label>
@@ -447,7 +475,7 @@ def row_markup(rows):
       <span class="host">{host_markup(r['host'])}</span>
       {' '.join(flags)}
     </div>
-    <p class="why">{html.escape(r['why'])}</p>
+    <p class="why">{html.escape(r['why'])}</p>{brief}
   </li>""")
     return "\n".join(out)
 

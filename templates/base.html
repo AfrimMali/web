@@ -146,6 +146,25 @@
 
   .empty{color:var(--muted);font-style:italic;margin-top:2.5rem}
 
+  /* an item on its own page: the reader stays here, and the source is credited
+     plainly underneath rather than being the only way to read anything */
+  .entry{margin-top:2.6rem}
+  .entry .stamp{
+    font-family:var(--sans);font-size:.75em;font-weight:500;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 .6rem;
+  }
+  .entry h1{
+    font-family:var(--serif);font-weight:700;font-size:1.6rem;
+    font-variation-settings:"opsz" 40;line-height:1.2;margin:0 0 1.4rem;
+  }
+  .entry p{margin:0 0 1.1rem;max-width:34rem}
+  .entry .origin{
+    margin-top:2rem;padding-top:1.1rem;border-top:1px solid var(--rule);
+    font-family:var(--sans);font-size:.85em;
+  }
+  .entry .origin a{border-bottom:1px solid var(--rule)}
+  .entry .origin a:hover{border-bottom-color:var(--fg)}
+
   /* Theme switch: a bare track and knob. No icons - the design uses none.
      ID selector so it outranks the .top nav button reset above. */
   #theme{
