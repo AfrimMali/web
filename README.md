@@ -60,6 +60,26 @@ Then you double-click **publish.bat** (or run `python publish.py`):
 The review page binds to loopback only and needs a session token, because a process that
 can publish to a live site should not be reachable by a page you happen to have open.
 
+`publish.py` works on any proposal file — `--source FILE` — so the review-and-publish half
+stands on its own even if the harvester is not running.
+
+### Before the harvester can run
+
+The Hermes side needs two things that are account matters, not configuration:
+
+- **credit with the model provider.** The scheduled job is created but paused; it fails
+  with `HTTP 402 Insufficient Balance` until the DeepSeek account has credit.
+- **a web-search backend.** `web_search` needs one of `TAVILY_API_KEY`,
+  `BRAVE_SEARCH_API_KEY`, `EXA_API_KEY` or `FIRECRAWL_API_KEY`. With none set the toolset
+  is enabled but unavailable, and the job would run with no tools at all.
+
+Resume it with `hermes -p signal cron resume signal-harvest` once both are in place, and
+note that jobs only fire while the gateway is running (`hermes gateway install`).
+
+One thing to know if you ever change the Hermes toolsets: the cron path uses its own
+platform, `cron`, separate from `cli`. Setting `hermes tools disable X` alone leaves the
+scheduled job untouched — it needs `--platform cron`.
+
 ## The contract with Hermes
 
 The site reads exactly one file. Hermes writes it, `render.py` renders it, and

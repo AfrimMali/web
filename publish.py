@@ -50,6 +50,20 @@ IDLE_SECONDS = 30 * 60
 
 # ---------- finding what Hermes said ----------
 
+def hermes_home():
+    """Hermes' data directory.
+
+    Not ~/.hermes on this platform: the Windows installer puts it under
+    LOCALAPPDATA, so probe rather than assume. HERMES_HOME wins when set.
+    """
+    if os.environ.get("HERMES_HOME"):
+        return Path(os.environ["HERMES_HOME"])
+    local = os.environ.get("LOCALAPPDATA")
+    candidates = [Path(local) / "hermes"] if local else []
+    candidates.append(Path.home() / ".hermes")
+    return next((c for c in candidates if c.is_dir()), candidates[-1])
+
+
 def hermes_output_dirs():
     """Where Hermes' cron writes each run's answer.
 
@@ -57,7 +71,7 @@ def hermes_output_dirs():
     with no file tool at all. The `signal` profile is preferred; the default
     profile is a fallback so this still works before that profile exists.
     """
-    home = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
+    home = hermes_home()
     return [home / "profiles" / "signal" / "cron" / "output", home / "cron" / "output"]
 
 
