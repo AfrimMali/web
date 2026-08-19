@@ -48,9 +48,18 @@ TRACKED = "content/items.json"
 PORT = 8765
 IDLE_SECONDS = 30 * 60
 
-PROFILE = "signal"                 # the Hermes profile that owns the harvest job
-JOB = "signal-harvest"
+PROFILE = "signal"                 # the Hermes profile that does the research
 HARVEST_TIMEOUT = 15 * 60
+KEEP_HARVESTS = 50
+
+# Harvests are saved here, beside the repo rather than inside it: they are working
+# notes, not site content, and nothing here is ever committed.
+HARVEST_DIR = ROOT.parent / "harvests"
+
+# The instruction Hermes is given. Editing that file is how you retune what counts as
+# worth publishing - the score bar, how recent, which sources, how long the brief.
+SKILL = (Path(os.environ.get("HERMES_HOME") or (Path(os.environ.get("LOCALAPPDATA", "")) / "hermes"))
+         / "profiles" / PROFILE / "skills" / "signal" / "harvest" / "SKILL.md")
 
 # The server is threaded, so two requests can arrive at once. The button disables
 # itself after a click, but that is the browser's promise, not ours - a second tab
@@ -75,14 +84,15 @@ def hermes_home():
 
 
 def hermes_output_dirs():
-    """Where Hermes' cron writes each run's answer.
+    """Where harvests are kept.
 
-    The cron runtime writes these files, not the model - the agent is configured
-    with no file tool at all. The `signal` profile is preferred; the default
-    profile is a fallback so this still works before that profile exists.
+    Ours first. The old scheduler's output directories stay in the list so harvests
+    taken before this was run by hand are still readable.
     """
     home = hermes_home()
-    return [home / "profiles" / "signal" / "cron" / "output", home / "cron" / "output"]
+    return [HARVEST_DIR,
+            home / "profiles" / PROFILE / "cron" / "output",
+            home / "cron" / "output"]
 
 
 def newest_output():
@@ -91,6 +101,7 @@ def newest_output():
     found = []
     for base in hermes_output_dirs():
         if base.is_dir():
+            found += [f for f in base.glob("*.md") if f.is_file()]
             found += [f for f in base.glob("*/*.md") if f.is_file()]
     return max(found, key=lambda f: f.name, default=None)
 
@@ -115,39 +126,58 @@ def harvest_age(path):
 
 
 def run_harvest():
-    """Ask Hermes to run the harvest now.
+    """Run one research pass now, in the foreground, and save the answer.
 
-    The scheduled job only fires while the PC is awake, so a missed 09:00 would
-    otherwise leave you with nothing and no way forward. Running on demand makes the
-    schedule an optimisation rather than a dependency.
+    Deliberately a single one-shot process: it starts when you ask, exits when it is
+    done, and leaves nothing running. There is no scheduler and no background service
+    - the instruction file is read here and handed to Hermes directly, which is what
+    the scheduler used to do internally anyway.
     """
     exe = shutil.which("hermes")
     if not exe:
         return False, "hermes is not on PATH, so I cannot start a harvest from here."
-    print("  no harvest yet today - running one now, this usually takes a minute or two")
+    if not SKILL.is_file():
+        return False, f"the harvest instruction is missing: {SKILL}"
+
+    print("  researching now - this usually takes two or three minutes")
+    prompt = (SKILL.read_text(encoding="utf-8")
+              + "\n\n---\n\nRun the harvest described above for today and answer with "
+                "the JSON block.")
     try:
-        r = subprocess.run([exe, "-p", PROFILE, "cron", "run", JOB],
+        # A list of arguments, never a shell string: the instruction is a whole file
+        # of prose, quotes and backticks included.
+        r = subprocess.run([exe, "-p", PROFILE, "-z", prompt],
                            capture_output=True, text=True, encoding="utf-8",
                            timeout=HARVEST_TIMEOUT)
     except subprocess.TimeoutExpired:
         return False, f"the harvest did not finish within {HARVEST_TIMEOUT // 60} minutes."
+
     out = (r.stdout or "") + (r.stderr or "")
     if "Insufficient Balance" in out:
         return False, "the model provider reports no credit - top up and try again."
-    if r.returncode != 0 and "failed" in out.lower():
+    answer = (r.stdout or "").strip()
+    if not answer:
         tail = [l for l in out.splitlines() if l.strip()][-1:] or [""]
-        return False, f"the harvest failed: {tail[0].strip()[:160]}"
+        return False, f"the harvest produced nothing: {tail[0].strip()[:160]}"
+
+    HARVEST_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    render.write(HARVEST_DIR / f"{stamp}.md", answer + "\n")
+
+    # Keep a little history to look back on, not an unbounded pile.
+    kept = sorted(HARVEST_DIR.glob("*.md"), key=lambda f: f.name, reverse=True)
+    for stale in kept[KEEP_HARVESTS:]:
+        stale.unlink(missing_ok=True)
     return True, ""
 
 
 def response_section(text):
-    """Just the model's answer, discarding the prompt the cron runtime records above it.
+    """Just the model's answer, discarding any prompt recorded above it.
 
-    The run-output file is "# Cron Job / ## Prompt / ## Response", and the prompt
-    contains the whole skill - including a worked JSON schema example and the literal
-    characters that open a fenced block. Parsing the file as a whole risks lifting
-    that example and offering "required - the headline, plain text" as a real item.
-    Only ever read what came after the answer began.
+    A one-shot run returns only the answer, but harvests taken by the old scheduler
+    are "# Cron Job / ## Prompt / ## Response" files whose prompt contains the whole
+    instruction - including a worked JSON schema and the characters that open a
+    fenced block. Parsing those whole risks lifting the example as if it were real.
     """
     marker = re.search(r"^##\s+Response\s*$", text, re.M)
     return text[marker.end():] if marker else text

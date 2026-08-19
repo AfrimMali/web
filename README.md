@@ -40,15 +40,14 @@ markup.
 
 ## The daily loop
 
-Hermes runs on its own schedule each morning under a dedicated profile whose only
-capability is web search and extraction — no shell, no file access, no memory, no
-ability to edit its own instruction or reschedule itself. It cannot publish; it can
-only propose. Its answer is saved by its own cron runtime.
+**Nothing runs in the background and nothing is scheduled.** You start it, it finishes,
+it exits.
 
-Then you double-click the **Signal** shortcut on the desktop (or run `python publish.py`).
-If the scheduled run was missed — the PC was asleep at 09:00, say — it starts a harvest
-itself rather than telling you there is nothing, so the schedule is an optimisation and
-never a dependency. What you get:
+Double-click the **Signal** shortcut on the desktop (or run `python publish.py`). It hands
+the harvest instruction to Hermes as a single one-shot run, waits for the answer — two or
+three minutes — and shows it to you. Hermes has one capability, web search and extraction:
+no shell, no file access, no memory, no ability to edit its own instruction. It cannot
+publish; it can only propose. What you get:
 
 - it reads the newest proposal and pulls the JSON out of whatever prose surrounds it
 - every item is shown as it will appear, with its score, its claimed source, and the
@@ -75,18 +74,22 @@ already there.
 
 The Hermes side needs two things that are account matters, not configuration:
 
-- **credit with the model provider.** The scheduled job is created but paused; it fails
-  with `HTTP 402 Insufficient Balance` until the DeepSeek account has credit.
+- **credit with the model provider.** A harvest fails with `HTTP 402 Insufficient
+  Balance` until the DeepSeek account has credit.
 - **a web-search backend.** `web_search` needs one of `TAVILY_API_KEY`,
   `BRAVE_SEARCH_API_KEY`, `EXA_API_KEY` or `FIRECRAWL_API_KEY`. With none set the toolset
   is enabled but unavailable, and the job would run with no tools at all.
 
-Resume it with `hermes -p signal cron resume signal-harvest` once both are in place, and
-note that jobs only fire while the gateway is running (`hermes gateway install`).
+### Tuning what gets harvested
 
-One thing to know if you ever change the Hermes toolsets: the cron path uses its own
-platform, `cron`, separate from `cli`. Setting `hermes tools disable X` alone leaves the
-scheduled job untouched — it needs `--platform cron`.
+The instruction lives at
+`~/.hermes/profiles/signal/skills/signal/harvest/SKILL.md` (on Windows, under
+`%LOCALAPPDATA%\hermes`). It is plain English and meant to be edited: the score bar to
+clear, how recent an item must be, which sources to prefer, and how long each brief runs.
+That file is the whole of the research behaviour — there is no scheduler config and no job
+settings anywhere else.
+
+Harvests are kept in `../harvests/` beside the repo, last 50, never committed.
 
 ## The contract with Hermes
 
