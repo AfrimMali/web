@@ -213,6 +213,7 @@ def build_item(site, tpl, item):
 {render_brief(item)}
       <p class="origin"><a href="{esc(item['url'])}" rel="noopener">Read the original at {esc(item['source'])} &#8594;</a></p>
     </article>"""
+    where = site['url'].rstrip('/') + f"/items/{slug_for(item)}.html"
     return build_page(
         site, tpl,
         page_title=f"{item['title']} — {site['title']}",
@@ -220,6 +221,7 @@ def build_item(site, tpl, item):
         path=f"items/{slug_for(item)}.html",
         main=main,
         items=[item],
+        ld=article_ld(site, item, where),
     )
 
 
@@ -251,6 +253,37 @@ def render_archive(items):
     return "\n".join(out)
 
 
+def article_ld(site, item, url):
+    """Structured data for a single finding.
+
+    The listing pages are collections; one finding is an Article. Emitting
+    CollectionPage here told crawlers that the site's own writing was a list of
+    links, on precisely the pages that exist to be found.
+    """
+    return escape_ld(json.dumps({
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": str(item["title"])[:110],
+        "description": str(item.get("why") or item["title"]),
+        "url": url,
+        "inLanguage": site.get("lang", "en"),
+        "datePublished": (parse_date(item.get("published")) or datetime.now(timezone.utc))
+                         .strftime("%Y-%m-%d"),
+        "isBasedOn": item["url"],
+        "citation": str(item.get("source", "")),
+        "publisher": {"@type": "Organization", "name": site["title"]},
+    }, ensure_ascii=False))
+
+
+def escape_ld(blob):
+    """json.dumps does not escape "/", so a title containing </script> would close
+    the ld+json block and everything after it would parse as live markup. These are
+    valid JSON escapes, so the payload still parses."""
+    return (blob.replace("<", "\\u003c")
+                .replace(">", "\\u003e")
+                .replace("&", "\\u0026"))
+
+
 def jsonld(site, page_title, url, items):
     blob = json.dumps({
         "@context": "https://schema.org",
@@ -270,12 +303,7 @@ def jsonld(site, page_title, url, items):
         },
     }, ensure_ascii=False)
 
-    # json.dumps does not escape "/", so a title containing </script> would close
-    # the ld+json block and everything after it would parse as live markup. These
-    # are valid JSON escapes, so the payload still parses.
-    return (blob.replace("<", "\\u003c")
-                .replace(">", "\\u003e")
-                .replace("&", "\\u0026"))
+    return escape_ld(blob)
 
 
 def csp(tpl, site):
@@ -312,7 +340,7 @@ def csp(tpl, site):
     ))
 
 
-def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
+def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=None):
     base = site["url"].rstrip("/")
     canonical = f"{base}/{path}".replace("/index.html", "/")
 
@@ -338,7 +366,7 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede=""):
         "{{LEDE}}": lede,
         "{{MAIN}}": main,
         "{{UPDATED}}": "{0.day} {0:%B %Y}".format(datetime.now(timezone.utc)),
-        "{{JSONLD}}": jsonld(site, page_title, canonical, items),
+        "{{JSONLD}}": ld if ld is not None else jsonld(site, page_title, canonical, items),
         "{{FATHOM}}": fathom,
     }
     # One pass, so substituted values are never re-scanned. Item text that happens to
@@ -429,9 +457,18 @@ def sitemap(site, items, payload=None):
     dates = [d for d in (parse_date(i.get("published")) for i in items) if d]
     newest = max(dates, default=None) or parse_date((payload or {}).get("generated_at"))
     day = (newest or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+    # One date for every url tells a crawler nothing and teaches it to ignore
+    # lastmod - the same failure the comment above warns about, by another route.
+    # Listing pages move when the newest item does; an item page moves when it
+    # was published.
+    entries = [("/", day), ("/archive.html", day)]
+    for i in items:
+        d = parse_date(i.get("published")) or newest
+        entries.append((f"/items/{slug_for(i)}.html",
+                        (d or datetime.now(timezone.utc)).strftime("%Y-%m-%d")))
     urls = "".join(
-        f"\n  <url><loc>{base}{p}</loc><lastmod>{day}</lastmod></url>"
-        for p in ["/", "/archive.html"] + [f"/items/{slug_for(i)}.html" for i in items]
+        f"\n  <url><loc>{base}{p}</loc><lastmod>{when}</lastmod></url>"
+        for p, when in entries
     )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'

@@ -211,7 +211,7 @@ scratch = Path(tempfile.mkdtemp()) / "items.json"
 try:
     publish.ITEMS = scratch
     scratch.write_text(json.dumps({"items": old}), encoding="utf-8")
-    merged, added = publish.merge_items(new)
+    merged, added, enriched = publish.merge_items(new)
     urls = [i["url"] for i in merged]
     check("merge: yesterday survives today", "https://e.org/old2" in urls)
     check("merge: today is added", "https://e.org/new1" in urls)
@@ -220,12 +220,39 @@ try:
     check("merge: newest first", urls[0] == "https://e.org/new1")
 
     scratch.write_text(json.dumps({"items": old}), encoding="utf-8")
-    _, none_added = publish.merge_items([item(url="https://e.org/old1")])
-    check("merge: re-publishing the same harvest adds nothing", none_added == 0)
+    _, none_added, none_enriched = publish.merge_items([item(url="https://e.org/old1")])
+    check("merge: an identical re-publish changes nothing",
+          none_added == 0 and not none_enriched)
 
     scratch.write_text("{ this is not json", encoding="utf-8")
-    recovered, n = publish.merge_items(new)
+    _, n, _ = publish.merge_items(new)
     check("merge: a corrupt file does not lose today's work", n == len(new))
+
+    # --- the bug that silently discarded three briefs on 19 Aug -----------------
+    thin = [{"title": "Thin one", "url": "https://e.org/thin", "source": "S",
+             "pillar": "health", "why": "one line"}]
+    better = [{"title": "A BETTER HEADLINE", "url": "https://e.org/thin", "source": "S",
+               "pillar": "health", "why": "one line",
+               "brief": "Para one." + chr(10) * 2 + "Para two."}]
+    scratch.write_text(json.dumps({"items": thin}), encoding="utf-8")
+    merged, added, enriched = publish.merge_items(better)
+    stored = merged[0]
+    check("enrich: a missing brief is filled in", bool(stored.get("brief")),
+          str(stored.get("brief"))[:30])
+    check("enrich: it counts as a change, not 'nothing new'", added == 0 and len(enriched) == 1)
+    check("enrich: the title is NOT overwritten", stored["title"] == "Thin one",
+          stored["title"])
+    check("enrich: so the page url cannot move",
+          render.slug_for(stored) == render.slug_for(thin[0]))
+
+    # a field that already has a value is never replaced
+    full = [{"title": "Has one", "url": "https://e.org/full", "source": "S",
+             "pillar": "health", "brief": "ORIGINAL"}]
+    scratch.write_text(json.dumps({"items": full}), encoding="utf-8")
+    merged, _, enriched = publish.merge_items(
+        [{**full[0], "brief": "REPLACEMENT ATTEMPT"}])
+    check("enrich: an existing brief is left alone",
+          merged[0]["brief"] == "ORIGINAL" and not enriched)
 finally:
     publish.ITEMS = real_items
 
@@ -254,6 +281,39 @@ check("item page: falls back to the one-liner when there is no brief",
           site, render.TEMPLATE.read_text(encoding="utf-8"),
           {"title": "T", "url": "https://e.org/d", "source": "S", "pillar": "health",
            "why": "just this"}))
+
+
+# --- structured data and sitemap dates --------------------------------------
+# Every item page used to declare itself a CollectionPage containing one thing, and
+# every sitemap url carried the same date. Both told crawlers something false on the
+# pages that exist to be found.
+
+tpl_txt = render.TEMPLATE.read_text(encoding="utf-8")
+one = {"title": "T", "url": "https://src.example/x", "source": "Src",
+       "pillar": "health", "published": "2026-08-11", "why": "the takeaway"}
+page = render.build_item(site, tpl_txt, one)
+ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>',
+                          page, re.S).group(1))
+check("schema: an item page is an Article", ld["@type"] == "Article", ld["@type"])
+check("schema: it carries the publication date", ld.get("datePublished") == "2026-08-11")
+check("schema: it points at the source it is based on",
+      ld.get("isBasedOn") == "https://src.example/x")
+check("schema: a listing page is still a CollectionPage",
+      json.loads(render.jsonld(site, "t", "https://x/", [one]))["@type"] == "CollectionPage")
+hostile_page = render.build_item(site, tpl_txt, {**one, "title": "a</script><script>x"})
+hostile_ld = re.search(r'<script type="application/ld\+json">(.*?)</script>',
+                       hostile_page, re.S).group(1)
+check("schema: </script> in a title cannot close the ld+json block",
+      "</" + "script>" not in hostile_ld and json.loads(hostile_ld) is not None)
+check("schema: and cannot inject markup into the page body",
+      "a</" + "script><script>x" not in hostile_page.split("<body>")[1])
+
+two = [one, {**one, "url": "https://src.example/y", "published": "2026-07-01"}]
+sm = render.sitemap(site, two)
+stamps = re.findall(r"<lastmod>([^<]+)</lastmod>", sm)
+check("sitemap: item pages carry their own dates", "2026-07-01" in stamps, str(stamps))
+check("sitemap: not one date repeated for everything", len(set(stamps)) > 1, str(set(stamps)))
+check("sitemap: one entry per page plus index and archive", len(stamps) == len(two) + 2)
 
 
 # --- the git path, exercised in a throwaway repo so CI covers it too ---------

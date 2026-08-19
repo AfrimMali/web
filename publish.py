@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """publish.py — review what Hermes proposed, then publish it in one click.
 
-Hermes runs on a schedule with a single toolset (web search and extraction) and
-no way to write anything at all. Its answer is saved by its own cron runtime.
-This script reads that answer, shows every item exactly as it will appear on the
-site, and on confirmation writes content/items.json, commits that one path and
-pushes. Nothing else is ever committed.
+Nothing runs in the background and nothing is scheduled. This starts a single
+research pass when you ask for one, waits for it, shows every item exactly as it
+will appear on the site, and on confirmation writes content/items.json, commits
+that one path and pushes. Nothing else is ever committed, and nothing keeps
+running afterwards.
+
+Hermes itself has one capability - web search and extraction - and no way to
+write anything at all, so it can only ever propose.
 
     python publish.py            open the review page
     python publish.py --check    print the newest proposal and exit, no server
@@ -58,8 +61,7 @@ HARVEST_DIR = ROOT.parent / "harvests"
 
 # The instruction Hermes is given. Editing that file is how you retune what counts as
 # worth publishing - the score bar, how recent, which sources, how long the brief.
-SKILL = (Path(os.environ.get("HERMES_HOME") or (Path(os.environ.get("LOCALAPPDATA", "")) / "hermes"))
-         / "profiles" / PROFILE / "skills" / "signal" / "harvest" / "SKILL.md")
+SKILL_REL = ("profiles", PROFILE, "skills", "signal", "harvest", "SKILL.md")
 
 # The server is threaded, so two requests can arrive at once. The button disables
 # itself after a click, but that is the browser's promise, not ours - a second tab
@@ -136,11 +138,12 @@ def run_harvest():
     exe = shutil.which("hermes")
     if not exe:
         return False, "hermes is not on PATH, so I cannot start a harvest from here."
-    if not SKILL.is_file():
-        return False, f"the harvest instruction is missing: {SKILL}"
+    skill = hermes_home().joinpath(*SKILL_REL)
+    if not skill.is_file():
+        return False, f"the harvest instruction is missing: {skill}"
 
     print("  researching now - this usually takes two or three minutes")
-    prompt = (SKILL.read_text(encoding="utf-8")
+    prompt = (skill.read_text(encoding="utf-8")
               + "\n\n---\n\nRun the harvest described above for today and answer with "
                 "the JSON block.")
     try:
@@ -268,6 +271,16 @@ def display_safe(item):
             for k, v in item.items()}
 
 
+def published_urls():
+    """Urls already on the site, so the review can tell new from update."""
+    try:
+        return {i.get("url") for i in
+                json.loads(ITEMS.read_text(encoding="utf-8")).get("items", [])
+                if isinstance(i, dict)}
+    except (json.JSONDecodeError, OSError):
+        return set()
+
+
 def judge(payload, site):
     """Per-item verdicts, with validate() as the only authority on what may ship.
 
@@ -283,6 +296,7 @@ def judge(payload, site):
         survivors = render.validate(payload, pillars)
     kept_urls = {i["url"] for i in survivors}
 
+    live = published_urls()
     rows, seen = [], set()
     for n, item in enumerate(raw):
         one = io.StringIO()
@@ -320,6 +334,7 @@ def judge(payload, site):
             "host": ascii_host,
             "non_ascii_host": non_ascii,
             "source_mismatch": bool(clean) and not source_matches_host(clean),
+            "already": bool(clean) and clean["url"] in live,
         })
     return rows, survivors
 
@@ -359,13 +374,21 @@ def staged_exactly_ours(staged_names):
     return [n for n in staged_names if n] == [TRACKED]
 
 
+# Fields a later harvest may fill in on an item already published. `title` and `url`
+# are deliberately absent: the page slug is derived from the title, so changing it
+# would move a live URL and break every link and ranking pointing at it. A better
+# headline is not worth that.
+ENRICHABLE = ("brief", "why", "score", "published", "source", "pillar")
+
+
 def merge_items(new_items):
     """Today's findings on top of everything published before, newest first.
 
-    This used to replace the file outright, which quietly destroyed a day's work on
-    every publish - the archive page was archiving nothing. Items are keyed by url and
-    the existing entry wins, so re-running a harvest cannot rewrite the record of
-    something already published.
+    Two rules, learned the hard way. Replacing the file outright destroyed a day's
+    work on every publish, so existing entries are kept. But merely *skipping* a url
+    already present meant an item could never be improved - a harvest that found a
+    proper write-up for something published earlier as a one-liner had it silently
+    thrown away. So: fill the gaps, never overwrite what is already there.
     """
     existing = []
     if ITEMS.exists():
@@ -374,9 +397,20 @@ def merge_items(new_items):
         except (json.JSONDecodeError, OSError):
             existing = []
 
-    seen = {i.get("url") for i in existing if isinstance(i, dict)}
-    added = [i for i in new_items if i.get("url") not in seen]
-    return added + existing, len(added)
+    by_url = {i.get("url"): i for i in existing if isinstance(i, dict)}
+    added, enriched = [], []
+
+    for item in new_items:
+        old = by_url.get(item.get("url"))
+        if old is None:
+            added.append(item)
+            continue
+        gained = [f for f in ENRICHABLE if not old.get(f) and item.get(f)]
+        if gained:
+            old.update({f: item[f] for f in gained})
+            enriched.append((old.get("title", ""), gained))
+
+    return added + existing, len(added), enriched
 
 
 def write_items(items):
@@ -433,12 +467,18 @@ def publish_items(items):
         raise RuntimeError(
             "something else is already staged: " + ", ".join(n for n in before if n)
             + ". Commit or unstage it first - an approval here must not carry other changes.")
-    merged, added = merge_items(items)
-    if not added:
-        raise RuntimeError("every one of those is already published - nothing new to add.")
+    merged, added, enriched = merge_items(items)
+    if not added and not enriched:
+        raise RuntimeError(
+            "every one of those is already published, with nothing new to add to them.")
     write_items(merged)
+    parts = []
+    if added:
+        parts.append(f"+{added} item(s)")
+    if enriched:
+        parts.append(f"{len(enriched)} filled in")
     return commit_tracked_only(
-        f"content: +{added} item(s) for {datetime.now(timezone.utc):%Y-%m-%d}"
+        f"content: {', '.join(parts)} for {datetime.now(timezone.utc):%Y-%m-%d}"
         f"  ({len(merged)} total)")
 
 
@@ -487,6 +527,8 @@ def row_markup(rows):
             flags.append('<span class="flag">non-ascii domain</span>')
         if r["source_mismatch"]:
             flags.append('<span class="flag">source does not match domain</span>')
+        if r["already"]:
+            flags.append('<span class="upd">updates a published item</span>')
         if not r["ok"]:
             flags.append(f'<span class="bad">{html.escape(r["reason"])}</span>')
         paras = [x.strip() for x in re.split(r"\n\s*\n", r["brief"]) if x.strip()]
@@ -681,8 +723,8 @@ def main():
     else:
         src = newest_output()
         fresh = bool(src) and harvest_age(src)[1]
-        # A scheduled run only happens if the machine was awake for it. Rather than
-        # report an empty hand, go and get one.
+        # Nothing runs on a schedule, so a fresh proposal exists only if you asked
+        # for one. Rather than report an empty hand, go and get it.
         if not fresh and not args.no_harvest:
             ok, why = run_harvest()
             if ok:
