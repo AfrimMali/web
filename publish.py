@@ -25,6 +25,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import threading
@@ -46,6 +47,10 @@ TRACKED = "content/items.json"
 
 PORT = 8765
 IDLE_SECONDS = 30 * 60
+
+PROFILE = "signal"                 # the Hermes profile that owns the harvest job
+JOB = "signal-harvest"
+HARVEST_TIMEOUT = 15 * 60
 
 # The server is threaded, so two requests can arrive at once. The button disables
 # itself after a click, but that is the browser's promise, not ours - a second tab
@@ -88,6 +93,51 @@ def newest_output():
         if base.is_dir():
             found += [f for f in base.glob("*/*.md") if f.is_file()]
     return max(found, key=lambda f: f.name, default=None)
+
+
+def harvest_age(path):
+    """(human description, is_from_today) for a run-output file.
+
+    The age of a proposal changes how you read it, so the review page says when the
+    harvest ran rather than showing a path nobody can parse at a glance.
+    """
+    try:
+        when = datetime.strptime(path.stem, "%Y-%m-%d_%H-%M-%S")
+    except ValueError:
+        return path.name, False
+    today = datetime.now().date()
+    days = (today - when.date()).days
+    if days == 0:
+        return f"today, {when:%H:%M}", True
+    if days == 1:
+        return f"yesterday, {when:%H:%M}", False
+    return f"{days} days ago ({when:%d %b, %H:%M})", False
+
+
+def run_harvest():
+    """Ask Hermes to run the harvest now.
+
+    The scheduled job only fires while the PC is awake, so a missed 09:00 would
+    otherwise leave you with nothing and no way forward. Running on demand makes the
+    schedule an optimisation rather than a dependency.
+    """
+    exe = shutil.which("hermes")
+    if not exe:
+        return False, "hermes is not on PATH, so I cannot start a harvest from here."
+    print("  no harvest yet today - running one now, this usually takes a minute or two")
+    try:
+        r = subprocess.run([exe, "-p", PROFILE, "cron", "run", JOB],
+                           capture_output=True, text=True, encoding="utf-8",
+                           timeout=HARVEST_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return False, f"the harvest did not finish within {HARVEST_TIMEOUT // 60} minutes."
+    out = (r.stdout or "") + (r.stderr or "")
+    if "Insufficient Balance" in out:
+        return False, "the model provider reports no credit - top up and try again."
+    if r.returncode != 0 and "failed" in out.lower():
+        tail = [l for l in out.splitlines() if l.strip()][-1:] or [""]
+        return False, f"the harvest failed: {tail[0].strip()[:160]}"
+    return True, ""
 
 
 def extract_json(text):
@@ -503,7 +553,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not chosen:
                     raise RuntimeError("nothing selected.")
                 sha = publish_items(sorted(chosen, key=render.sort_key, reverse=True))
-                State.result = f"Published {len(chosen)} item(s) as {sha}. The build is running."
+                State.result = (f"Published {len(chosen)} item(s) as {sha}. "
+                                f"The build takes about a minute: {State.site['url']}")
             elif action == "rollback":
                 State.result = f"Rolled back to {rollback()}. The build is running."
             else:
@@ -544,27 +595,60 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="print the proposal and exit")
     ap.add_argument("--source", help="read this file instead of the newest Hermes run")
+    ap.add_argument("--no-harvest", action="store_true",
+                    help="never start a harvest; just show what is already there")
     args = ap.parse_args()
 
     site = render.load_json(render.SITE)
-    src = Path(args.source) if args.source else newest_output()
+
+    if args.source:
+        src, fresh = Path(args.source), True
+    else:
+        src = newest_output()
+        fresh = bool(src) and harvest_age(src)[1]
+        # A scheduled run only happens if the machine was awake for it. Rather than
+        # report an empty hand, go and get one.
+        if not fresh and not args.no_harvest:
+            ok, why = run_harvest()
+            if ok:
+                src = newest_output()
+                fresh = bool(src) and harvest_age(src)[1]
+            elif src:
+                print(f"  {why}" + chr(10) + "  showing the last harvest instead")
+            else:
+                sys.exit(f"no proposal available: {why}")
+
     if not src or not src.is_file():
-        sys.exit("no proposal found. Has the Hermes job run yet?  (or pass --source FILE)")
+        sys.exit("no proposal found, and no harvest could be run.")
 
     text = src.read_text(encoding="utf-8", errors="replace")
     payload = extract_json(text)
     if payload is None:
-        sys.exit(f"could not find any JSON in {src}")
+        sys.exit(f"could not find any JSON in {src.name} - Hermes may have answered in prose.")
 
     rows, _ = judge(payload, site)
     State.site = site
     State.rows = rows
     State.digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    State.source_label = str(src)
+    State.source_label = (harvest_age(src)[0] if not args.source else src.name)
     State.token = secrets.token_urlsafe(32)
     State.nonce = secrets.token_urlsafe(16)
 
-    print(f"{sum(1 for r in rows if r['ok'])} of {len(rows)} item(s) usable  ({src.name})")
+    usable = sum(1 for r in rows if r["ok"])
+    when = harvest_age(src)[0] if not args.source else src.name
+
+    if not usable:
+        # Most things not making the cut is the entire editorial premise, so this is
+        # a normal outcome and should not read like a crash.
+        print(f"Nothing cleared the bar ({when}). "
+              f"{'All ' + str(len(rows)) + ' candidate(s) were rejected' if rows else 'Hermes proposed nothing'}"
+              " - so there is nothing to publish, and that is a legitimate day.")
+        if rows:
+            for r in rows:
+                print(f"  [drop] {r['title'][:66]}   <- {r['reason']}")
+        return
+
+    print(f"{usable} of {len(rows)} item(s) usable  ({when})")
     if args.check:
         for r in rows:
             note = "" if r["ok"] else f"   <- {r['reason']}"

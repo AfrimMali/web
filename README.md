@@ -45,7 +45,10 @@ capability is web search and extraction — no shell, no file access, no memory,
 ability to edit its own instruction or reschedule itself. It cannot publish; it can
 only propose. Its answer is saved by its own cron runtime.
 
-Then you double-click **publish.bat** (or run `python publish.py`):
+Then you double-click the **Signal** shortcut on the desktop (or run `python publish.py`).
+If the scheduled run was missed — the PC was asleep at 09:00, say — it starts a harvest
+itself rather than telling you there is nothing, so the schedule is an optimisation and
+never a dependency. What you get:
 
 - it reads the newest proposal and pulls the JSON out of whatever prose surrounds it
 - every item is shown as it will appear, with its score, its claimed source, and the
@@ -60,8 +63,13 @@ Then you double-click **publish.bat** (or run `python publish.py`):
 The review page binds to loopback only and needs a session token, because a process that
 can publish to a live site should not be reachable by a page you happen to have open.
 
+The header tells you when the harvest ran — "today, 09:04" — because a stale proposal
+reads differently from a fresh one. A harvest that found nothing is reported as a normal
+day rather than an error; most things not clearing the bar is the whole premise.
+
 `publish.py` works on any proposal file — `--source FILE` — so the review-and-publish half
-stands on its own even if the harvester is not running.
+stands on its own even if the harvester is not running. `--no-harvest` shows only what is
+already there.
 
 ### Before the harvester can run
 

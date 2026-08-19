@@ -151,6 +151,36 @@ check("display: page stays bounded for a hostile proposal", len(markup) < 20_000
       f"{len(markup):,} chars")
 
 
+# --- how old is this proposal, and is nothing found a crash? -----------------
+# The scheduled harvest only runs while the PC is awake, so a stale proposal is a
+# normal state and must be legible rather than silently treated as today's.
+
+from datetime import datetime, timedelta                            # noqa: E402
+
+
+def stamped(days_ago):
+    when = datetime.now() - timedelta(days=days_ago)
+    return Path(when.strftime("%Y-%m-%d_%H-%M-%S") + ".md")
+
+
+check("age: today is recognised as fresh", publish.harvest_age(stamped(0))[1])
+check("age: today is described in words",
+      publish.harvest_age(stamped(0))[0].startswith("today"), publish.harvest_age(stamped(0))[0])
+check("age: yesterday is not fresh", not publish.harvest_age(stamped(1))[1])
+check("age: yesterday is named", publish.harvest_age(stamped(1))[0].startswith("yesterday"))
+check("age: older is counted in days", "days ago" in publish.harvest_age(stamped(4))[0],
+      publish.harvest_age(stamped(4))[0])
+check("age: an unparseable name degrades quietly",
+      publish.harvest_age(Path("not-a-timestamp.md")) == ("not-a-timestamp.md", False))
+
+empty_rows, empty_survivors = publish.judge({"items": []}, site)
+check("empty: a harvest that found nothing yields no rows",
+      empty_rows == [] and empty_survivors == [])
+allbad_rows, _ = publish.judge({"items": [item(url="/relative")]}, site)
+check("empty: an all-rejected harvest still explains itself",
+      len(allbad_rows) == 1 and not allbad_rows[0]["ok"] and allbad_rows[0]["reason"])
+
+
 # --- the git path, exercised in a throwaway repo so CI covers it too ---------
 # These functions touch git, so they were only ever tested by hand. A throwaway repo
 # with a local bare remote needs no network and runs anywhere, which makes the guards
