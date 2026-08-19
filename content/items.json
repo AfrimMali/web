@@ -1,6 +1,26 @@
 {
-  "generated_at": "2026-08-19T13:56:01Z",
+  "generated_at": "2026-08-19T15:18:27Z",
   "items": [
+    {
+      "title": "Cochrane: no reliable evidence that common embryo-transfer preparation techniques improve IVF success",
+      "url": "https://www.cochrane.org/about-us/news/no-clear-evidence-common-embryo-transfer-techniques-improve-ivf-success",
+      "source": "Cochrane",
+      "pillar": "health",
+      "why": "Do not pay extra for full-bladder preparation, cervical mucus removal or afterloading at embryo transfer - a new Cochrane review finds no reliable evidence any of them improves pregnancy rates.",
+      "brief": "A new Cochrane systematic review pooled 11 trials covering 2,524 women and found no reliable evidence that three routine embryo-transfer preparation techniques improve pregnancy rates: arriving with a full bladder to straighten the utero-cervical angle, removing cervical mucus before transfer, and \"afterloading\" to guide the embryo through the cervix. The included trials were small and methodologically weak, so the evidence was rated low or very low certainty.\n\nFor someone going through IVF, the practical takeaway is that these routines reflect tradition, clinic protocol and clinician preference rather than demonstrated benefit. There is no evidence-based reason to pay extra for them, and no evidence that skipping them lowers the chance of success; the techniques are generally considered safe, with a full bladder's discomfort the main downside.\n\nThe review authors recommend none of the techniques over standard care and call for properly powered trials, noting that 16 years of research have not settled the question. All included studies were conducted in high-income countries, so findings may not transfer elsewhere. This is an absence of evidence, not proof the techniques fail.",
+      "published": "2026-08-06",
+      "score": 76
+    },
+    {
+      "title": "FDA: recalled Midwest Poultry Services eggs tied to 98 Salmonella illnesses; check cartons for codes P-1950 or 840962",
+      "url": "https://www.fda.gov/food/outbreaks-foodborne-illness/outbreak-investigation-salmonella-eggs-july-2026",
+      "source": "FDA",
+      "pillar": "practical",
+      "why": "Check egg cartons for plant codes P-1950 or 840962 with a Julian date of 157-184 and sell-by dates 7/20-8/17; throw the eggs out or return them.",
+      "brief": "The FDA's ongoing Salmonella Enteritidis investigation linked to shell eggs from Midwest Poultry Services stands at 98 illnesses in 17 states, with 26 hospitalizations and no deaths. The recalled eggs came from Texas farms and were shipped to foodservice and retail customers in Texas, Oklahoma and Louisiana; they reached shelves at Kroger stores in Texas and Louisiana, Brookshire Grocery stores in Texas, Oklahoma, Arkansas and Louisiana, plus smaller outlets in those states and in Mississippi and New Mexico.\n\nRecalled cartons carry plant code P-1950 or 840962 with a Julian date between 157 and 184, and sell-by or best-by dates between July 20 and August 17, 2026. Brands include Country Morning, Cal-Maine Sunups, Brookshire's, Simple Truth and Kroger, in sizes from 6 to 60 eggs.\n\nConsumers should throw the eggs away or return them for a refund, and disinfect any surface that touched them. The FDA advisory was last updated in late July and the producer does not account for every illness in the outbreak, so the investigation is still open; the recall remains active.",
+      "published": "2026-07-24",
+      "score": 82
+    },
     {
       "title": "Salmonella outbreak from jalapeños triggers recalls of salsas, guacamole and pico de gallo sold at HEB, Whole Foods, Walmart, Target, Trader Joe's, Kroger, Stop & Shop and Hannaford",
       "url": "https://www.fda.gov/food/outbreaks-foodborne-illness/outbreak-investigation-salmonella-jalapeno-august-2026",
