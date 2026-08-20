@@ -546,20 +546,22 @@ check("sitemap: no subscribe entry while it is unconfigured",
 
 
 # --- the subscribe page: absent until it would work, correct when it does ----
-# A form posting to the wrong entry id looks perfect and drops every address on the
-# floor, so what is asserted here is the wiring, not the wording.
+# Browser code knows only a public Worker endpoint and sitekey. The storage ids and
+# validation secret belong to the Worker, where readers cannot extract them.
 
-SUB = {"form_id": "1FAIpQLSexample", "entry_id": "entry.987654321",
+SUB = {"endpoint": "https://signal-newsletter.example.workers.dev/subscribe",
        "turnstile_sitekey": "0x4AAAAAAAexample"}
 configured = dict(site, subscribe=SUB)
 sub_page = render.build_subscribe(configured, tpl_txt, SUB)
 
-check("subscribe: posts to the configured form",
-      f'action="https://docs.google.com/forms/d/e/{SUB["form_id"]}/formResponse"' in sub_page)
-check("subscribe: the field carries the configured entry id",
-      f'name="{SUB["entry_id"]}"' in sub_page)
+check("subscribe: posts to the verified backend",
+      f'action="{SUB["endpoint"]}"' in sub_page)
+check("subscribe: the browser receives no Google Form identifiers",
+      "docs.google.com/forms" not in sub_page and "entry." not in sub_page)
 check("subscribe: the turnstile sitekey is the configured one",
       f'data-sitekey="{SUB["turnstile_sitekey"]}"' in sub_page)
+check("subscribe: Turnstile result is bound to the backend action check",
+      'data-action="newsletter_subscribe"' in sub_page)
 check("subscribe: turnstile is loaded only here",
       "challenges.cloudflare.com/turnstile" in sub_page
       and "challenges.cloudflare.com/turnstile" not in render.build_privacy(site, tpl_txt))
@@ -568,10 +570,15 @@ check("subscribe: turnstile is loaded only here",
 check("subscribe: submits by POST, never as a query string",
       'method="post"' in sub_page)
 check("subscribe: the input is a real email field, and required",
-      'type="email"' in sub_page and "required" in sub_page)
+      'name="email" type="email"' in sub_page and "required" in sub_page)
 check("subscribe: the placeholder is not doing the job of a label",
       'class="vh" for="subscribe-email"' in sub_page)
+check("subscribe: carries a bot honeypot outside the keyboard order",
+      'name="website"' in sub_page and 'tabindex="-1"' in sub_page)
 check("subscribe: it links to the privacy policy", 'href="/privacy.html"' in sub_page)
+check("subscribe: javascript waits for an inspectable backend result",
+      'mode: "cors"' in tpl_txt and "response.ok" in tpl_txt
+      and 'mode: "no-cors"' not in tpl_txt)
 # The form is display:flex, which beats the UA stylesheet's [hidden]{display:none}.
 # Without this rule the thank-you appeared *under* a form that never went away.
 check("subscribe: hidden actually hides, even with display:flex set",

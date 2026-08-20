@@ -101,7 +101,7 @@ check("CSP base-uri and form-action locked",
 
 
 # --- the subscribe page widens the policy, and nothing else may -------------
-# One page needs Turnstile and the Google Forms endpoint. Loosening the whole site
+# One page needs Turnstile and the verified Worker endpoint. Loosening the whole site
 # to suit it would trade the strongest thing here for a signup box, so the widening
 # is per-page and this is what holds it there.
 
@@ -114,11 +114,13 @@ def directive(pol, name):
 
 
 check("CSP: no page loads third-party javascript by default",
-      "cloudflare" not in policy and "docs.google" not in policy)
+      "cloudflare" not in policy and "workers.dev" not in policy)
 check("CSP: frame-src is absent by default, so default-src none blocks frames",
       directive(policy, "frame-src") == "")
 
-sub_policy = r.csp(tpl, site, r.SUBSCRIBE_CSP)
+sub_cfg = {"endpoint": "https://signal-newsletter.example.workers.dev/subscribe",
+           "turnstile_sitekey": "0x4AAAAAAAexample"}
+sub_policy = r.csp(tpl, site, r.subscribe_csp(sub_cfg))
 
 check("CSP subscribe: turnstile may load, and only turnstile",
       directive(sub_policy, "script-src").endswith("https://challenges.cloudflare.com"))
@@ -126,10 +128,10 @@ check("CSP subscribe: turnstile may frame, and only turnstile",
       directive(sub_policy, "frame-src") == "https://challenges.cloudflare.com")
 # A widened form-action is the one that would actually hurt: it is what stops a
 # form on this site posting a reader's address somewhere it should not.
-check("CSP subscribe: form-action is exactly Google, not a wildcard",
-      directive(sub_policy, "form-action") == "https://docs.google.com")
-check("CSP subscribe: connect-src is exactly Google, not a wildcard",
-      directive(sub_policy, "connect-src") == "https://docs.google.com")
+check("CSP subscribe: form-action is exactly the Worker origin, not a wildcard",
+      directive(sub_policy, "form-action") == "https://signal-newsletter.example.workers.dev")
+check("CSP subscribe: connect-src is exactly the Worker origin, not a wildcard",
+      directive(sub_policy, "connect-src") == "https://signal-newsletter.example.workers.dev")
 check("CSP subscribe: 'none' was replaced, never appended to",
       "'none' https" not in sub_policy)
 check("CSP subscribe: still no unsafe-inline", "unsafe-inline" not in sub_policy)
@@ -137,15 +139,22 @@ check("CSP subscribe: default-src still none",
       "default-src 'none'" in sub_policy)
 check("CSP subscribe: base-uri still locked", "base-uri 'none'" in sub_policy)
 
-# The page only exists once all three values are in, so a half-filled config cannot
+# The page only exists once both public values are in, so a half-filled config cannot
 # put a dead form on the site.
 check("subscribe: absent until configured", r.subscribe_config(site) is None)
 check("subscribe: a partial config counts as absent",
-      r.subscribe_config({"subscribe": {"form_id": "x", "entry_id": "",
-                                        "turnstile_sitekey": "z"}}) is None)
-check("subscribe: all three present is configured",
-      r.subscribe_config({"subscribe": {"form_id": "x", "entry_id": "y",
-                                        "turnstile_sitekey": "z"}}) is not None)
+      r.subscribe_config({"subscribe": {"endpoint": "",
+                                        "turnstile_sitekey": "z"}}, {}) is None)
+check("subscribe: endpoint must be an absolute HTTPS URL",
+      r.subscribe_config({"subscribe": {"endpoint": "http://worker.example/x",
+                                        "turnstile_sitekey": "z"}}, {}) is None)
+check("subscribe: both public values configure the page",
+      r.subscribe_config({"subscribe": sub_cfg}, {}) is not None)
+check("subscribe: deployment variables can supply public config without a commit",
+      r.subscribe_config({"subscribe": {}}, {
+          "SUBSCRIBE_ENDPOINT": sub_cfg["endpoint"],
+          "TURNSTILE_SITEKEY": sub_cfg["turnstile_sitekey"],
+      }) == sub_cfg)
 check("subscribe: no nav link while unconfigured",
       "Subscribe" not in [l["label"] for l in r.nav_links(site)])
 

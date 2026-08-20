@@ -1,0 +1,18 @@
+name = "signal-newsletter-subscribe"
+main = "src/index.js"
+compatibility_date = "2026-08-20"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://afrimmali.com"
+TURNSTILE_HOSTNAME = "afrimmali.com"
+
+# Secrets are NOT declared here - wrangler has no [secrets] section, and anything
+# written under one is silently ignored. Set each after the first deploy:
+#
+#   npx wrangler secret put TURNSTILE_SECRET_KEY
+#   npx wrangler secret put GOOGLE_FORM_ID
+#   npx wrangler secret put GOOGLE_ENTRY_ID
+#
+# Until all three exist the Worker answers 503, and GET /health says so - that
+# endpoint is the configuration test.

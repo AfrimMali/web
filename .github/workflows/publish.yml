@@ -29,9 +29,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Pinned like everything else in this file. The runner image ships some Node
+      # already, but "whatever the image has" is exactly the mutable dependency
+      # the SHA pins above exist to avoid.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
       - run: python tests/audit_check.py
       - run: python tests/sec_check.py
       - run: python tests/publish_check.py
+      - run: node --test worker/test/*.test.mjs
 
   build:
     needs: test
@@ -48,6 +56,11 @@ jobs:
 
       # No pip install. render.py is standard library only.
       - run: python render.py
+        env:
+          # Public values only. The Worker keeps the Turnstile secret and Google
+          # Form identifiers in Cloudflare's encrypted secret store.
+          SUBSCRIBE_ENDPOINT: ${{ vars.SUBSCRIBE_ENDPOINT }}
+          TURNSTILE_SITEKEY: ${{ vars.TURNSTILE_SITEKEY }}
 
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:

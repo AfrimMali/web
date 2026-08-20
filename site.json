@@ -19,10 +19,9 @@
   "_security_contact": "address for /.well-known/security.txt; blank emits no file",
   "security_contact": "security@afrimmali.com",
 
-  "_subscribe": "email signup. All three values or none - a form without its entry id posts into the void. Blank emits no subscribe page and no nav link, and leaves every page's CSP untouched. form_id is the 1FAIpQLS... string in the Google Form url; entry_id comes from the form's 'Get prefilled link'; turnstile_sitekey is the PUBLIC Cloudflare key - the secret one has no use here and must not be committed. unsubscribe is the address every mailing must carry; blank falls back to security_contact.",
+  "_subscribe": "email signup. endpoint and turnstile_sitekey are public browser values and may instead come from the SUBSCRIBE_ENDPOINT and TURNSTILE_SITEKEY GitHub Actions variables. Google Form ids and the Turnstile secret belong only in Worker secrets. Blank browser values emit no subscribe page or nav link. unsubscribe is the address every mailing must carry; blank falls back to security_contact.",
   "subscribe": {
-    "form_id": "",
-    "entry_id": "",
+    "endpoint": "",
     "turnstile_sitekey": "",
     "unsubscribe": ""
   },

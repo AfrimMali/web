@@ -135,34 +135,68 @@ Harvests are kept in `../harvests/` beside the repo, last 50, never committed.
 
 ## Email subscription
 
-`/subscribe.html` collects addresses through a Google Form, because a static site on
-Pages has nowhere to receive a POST. **The page does not exist until all three values in
-`site.json` are filled in** — `form_id`, `entry_id` and `turnstile_sitekey` — and while
-they are blank there is no page, no nav link, and every page's CSP is untouched. Half a
-config would put a dead form on the site, so it counts as none.
+`/subscribe.html` is a static frontend backed by the Worker in `worker/`. The browser
+sends the email address and Turnstile token to that Worker. The Worker verifies the token
+with Cloudflare, checks its `hostname` and `action`, and only then submits the address to
+the Google Form. A success message therefore means both checks completed; the old opaque
+Google request, which could report success without knowing whether anything was stored,
+is gone.
 
-Where to get them: `form_id` is the `1FAIpQLS…` string in the form's URL; `entry_id`
-comes from the form's *Get prefilled link* (fill anything, copy the link, read the
-`entry.NNNNNNN` out of it); `turnstile_sitekey` is the **public** Cloudflare key — the
-secret one has no use here and must never be committed.
+The generated page only contains two public values: the Worker `endpoint` and Turnstile
+`sitekey`. Put them in `site.json` for a local build, or set the repository Actions
+variables `SUBSCRIBE_ENDPOINT` and `TURNSTILE_SITEKEY` for production. Until both exist,
+the generator intentionally emits no page or navigation link rather than publishing a
+dead form.
 
-The form keeps a real `action` and `method`, so with JavaScript off it posts straight to
-Google and Google confirms it. With JavaScript on it posts in the background and swaps in
-a thank-you instead, which keeps the reader here — at a price worth knowing: **Google
-sends no CORS headers, so the page cannot tell success from failure.** A rejected request
-is handed back to the plain POST rather than swallowed, but an accepted-looking one proves
-nothing.
+The private values live in Cloudflare Worker secrets, never in this public repository:
 
-**Turnstile is a gate on this form, not on the endpoint.** Nothing verifies the token —
-that needs a server call to Cloudflare, and Google Forms will not make one. It stops bots
-driving this page; it does nothing about a direct POST to the Google URL, which is public
-and sits in this page's source. Since sending is manual, reading the list before you send
-is the control that actually works.
+- `TURNSTILE_SECRET_KEY` — the secret paired with the public widget sitekey.
+- `GOOGLE_FORM_ID` — the `1FAIpQLS…` part of the Form URL.
+- `GOOGLE_ENTRY_ID` — the email question's `entry.NNNNNNN` name, obtained from a
+  prefilled Form link.
 
-Only `subscribe.html` gets the four CSP additions it needs (Turnstile's script and frame,
-Google's form-action and connect-src). Every other page keeps `form-action 'none'`,
-`connect-src 'none'`, and no third-party JavaScript at all. `tests/sec_check.py` holds
-that line.
+To activate it:
+
+1. Create a Google Form with one required email question and obtain its form and entry
+   ids.
+2. Create a Turnstile widget restricted to `afrimmali.com`; keep its secret private.
+3. Deploy the Worker and set its secrets. `wrangler.toml` already carries
+   `ALLOWED_ORIGIN` and `TURNSTILE_HOSTNAME`, so `deploy` sets those for you; the three
+   secrets are separate and must be set after the first deploy — wrangler has no
+   `[secrets]` section, and nothing declares them for you:
+
+       cd worker
+       npx wrangler login
+       npx wrangler deploy
+       npx wrangler secret put TURNSTILE_SECRET_KEY
+       npx wrangler secret put GOOGLE_FORM_ID
+       npx wrangler secret put GOOGLE_ENTRY_ID
+
+   Then check it before touching the site: `curl https://…workers.dev/health` returns
+   **200 `ready`** when all four values are present and **503** when any is missing. That
+   endpoint is the configuration test — use it rather than guessing from a failed signup.
+4. Add the deployed Worker URL and public sitekey as the two GitHub Actions variables,
+   then run the `publish` workflow. The next build emits `/subscribe.html`.
+5. Create and test the `unsubscribe@afrimmali.com` forward, then set
+   `subscribe.unsubscribe` to that address before sending a mailing.
+
+**Testing locally will fail the hostname check, and that is the Worker working.** It
+requires Turnstile's reported `hostname` to equal `TURNSTILE_HOSTNAME`, which is
+`afrimmali.com`. A widget solved on `localhost` reports `localhost` and is rejected. Test
+against production, or run a dev Worker with `TURNSTILE_HOSTNAME=localhost`.
+
+**On what is actually secret.** `TURNSTILE_SECRET_KEY` is: if it leaks, the bot protection
+is defeated and it must be rotated at once. The two Google ids are not, in the same sense —
+whoever has them can add rows to a form they cannot read, which is spam in a sheet you
+already review before sending. Keeping them in the Worker is still right, because it stops
+anyone reading the page from posting past Turnstile straight to Google. Knowing which is
+which decides how hard you react if one ever turns up in a log.
+
+Only `subscribe.html` gets the CSP additions for Turnstile and the exact Worker origin.
+Every other page keeps `form-action 'none'`, `connect-src 'none'`, and no third-party
+JavaScript. `tests/sec_check.py` holds that boundary; `worker/test/subscribe.test.mjs`
+covers origin rejection, input validation, the honeypot, Turnstile checks, Google failure,
+and the no-JavaScript response.
 
 ### Sending
 
@@ -181,6 +215,25 @@ study from last month.
 Every mailing carries an unsubscribe address (`subscribe.unsubscribe`, falling back to
 `security_contact`). `--newsletter` warns loudly if neither is set, because a bulk mail
 without one should not go out.
+
+### Account and domain hardening
+
+These controls are important launch work, but they do not determine whether
+`subscribe.html` is generated and cannot be implemented in source code:
+
+- Enable Porkbun 2FA and the domain transfer lock in the registrar account.
+- Verify `afrimmali.com` in the GitHub account/organization that owns the Pages site.
+- Review and revoke unused GitHub personal access tokens and OAuth app grants.
+- Protect `main` with **Restrict deletions** and **Block force pushes**, and nothing
+  else. Do **not** require a pull request, a status check, an up-to-date branch, or apply
+  rules to administrators: `publish.py` pushes straight to `main`, and every one of those
+  settings blocks a direct push. The failure would surface mid-publish, with a recall
+  notice half-shipped. Be honest about what this buys — it stops history being rewritten
+  or the branch deleted; it does not stop a malicious push, and nothing will while
+  publishing is a direct push. 2FA is the control doing that work.
+
+Treat these as account-owner checks: verify each in its provider dashboard rather than
+recording an unverified claim in the repository.
 
 `/privacy.html` is built unconditionally and says what is collected, why, on what basis,
 and how to be removed. While `fathom_site_id` is blank it also states outright that there

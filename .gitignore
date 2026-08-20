@@ -16,6 +16,7 @@ Thumbs.db
 # history. None of these belong here; the patterns are the safety net.
 .env
 .env.*
+worker/.dev.vars
 auth.json
 secrets*
 *.pem

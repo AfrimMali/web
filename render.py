@@ -15,11 +15,13 @@ import base64
 import hashlib
 import html
 import json
+import os
 import re
 import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).parent
 SITE = ROOT / "site.json"
@@ -378,29 +380,48 @@ def csp(tpl, site, extra=None):
     return "; ".join(f"{k} {v}".strip() for k, v in policy.items())
 
 
-# The origins the subscribe page needs, and the only page that ever gets them.
-# script-src and frame-src are what Cloudflare documents for Turnstile; it needs no
-# style-src exception, so "no unsafe-inline anywhere" survives. form-action covers
-# the no-javascript fallback POST, connect-src the fetch that replaces it.
-SUBSCRIBE_CSP = {
-    "script-src": "https://challenges.cloudflare.com",
-    "frame-src": "https://challenges.cloudflare.com",
-    "form-action": "https://docs.google.com",
-    "connect-src": "https://docs.google.com",
+# Public deployment values may live in site.json for local builds or in GitHub
+# Actions variables for production. The Google Form ids and Turnstile secret are
+# deliberately absent: they belong to the Worker, never to the generated page.
+SUBSCRIBE_ENV = {
+    "endpoint": "SUBSCRIBE_ENDPOINT",
+    "turnstile_sitekey": "TURNSTILE_SITEKEY",
 }
 
 
-def subscribe_config(site):
-    """The three values the subscribe page needs, or None if any is missing.
+def subscribe_config(site, environ=None):
+    """Return the browser-safe signup configuration, or None when incomplete.
 
-    All three or nothing. A form without its entry id posts into the void, and a
-    page carrying no sitekey renders a widget that never resolves - half-configured
-    fails silently in ways that look like working, so it is treated as absent.
+    The frontend only knows the HTTPS Worker endpoint and public Turnstile sitekey.
+    Google Form identifiers and the Turnstile secret stay in Worker secrets, where
+    the challenge can actually be verified before an address is stored.
     """
     raw = site.get("subscribe") or {}
-    got = {k: str(raw.get(k) or "").strip()
-           for k in ("form_id", "entry_id", "turnstile_sitekey")}
-    return got if all(got.values()) else None
+    environ = os.environ if environ is None else environ
+    got = {
+        key: str(environ.get(env_name) or raw.get(key) or "").strip()
+        for key, env_name in SUBSCRIBE_ENV.items()
+    }
+    if not all(got.values()):
+        return None
+
+    endpoint = urlsplit(got["endpoint"])
+    if (endpoint.scheme != "https" or not endpoint.netloc or endpoint.username
+            or endpoint.password or endpoint.fragment):
+        return None
+    return got
+
+
+def subscribe_csp(cfg):
+    """The narrow CSP additions needed by the signup page alone."""
+    endpoint = urlsplit(cfg["endpoint"])
+    origin = f"{endpoint.scheme}://{endpoint.netloc}"
+    return {
+        "script-src": "https://challenges.cloudflare.com",
+        "frame-src": "https://challenges.cloudflare.com",
+        "form-action": origin,
+        "connect-src": origin,
+    }
 
 
 def nav_links(site):
@@ -468,24 +489,27 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=No
 def build_subscribe(site, tpl, cfg):
     """The email signup page.
 
-    One field posting to a Google Form, which is the whole backend: a static site
-    on Pages has nowhere to receive a POST. The form keeps a real action and
-    method, so with javascript off it still submits - that fallback is the only
-    path that can actually confirm receipt, because Google sends no CORS headers
-    and the fetch below can never see its own result.
+    The form posts to a small Worker that verifies Turnstile server-side and only
+    then forwards the address to Google Forms. With JavaScript off, the Worker
+    returns a small confirmation page; with it on, the reader stays here and gets
+    a success message based on a real HTTP response.
     """
-    action = ("https://docs.google.com/forms/d/e/"
-              f"{esc(cfg['form_id'])}/formResponse")
+    action = esc(cfg["endpoint"])
     main = f"""<p class="sub-lede">An email when new findings go up. No more than one a day,
     and nothing else — the same items, in the same words, as the ones on this page.</p>
 
-  <form id="subscribe-form" class="subscribe" action="{action}" method="post"
-        target="_blank" rel="noopener">
+  <form id="subscribe-form" class="subscribe" action="{action}" method="post">
     <label class="vh" for="subscribe-email">Email address</label>
-    <input id="subscribe-email" name="{esc(cfg['entry_id'])}" type="email" required
+    <input id="subscribe-email" name="email" type="email" required
            autocomplete="email" maxlength="256" placeholder="Enter your email">
+    <div class="sub-trap" aria-hidden="true">
+      <label for="subscribe-website">Leave this field empty</label>
+      <input id="subscribe-website" name="website" type="text" autocomplete="off"
+             tabindex="-1">
+    </div>
     <div class="cf-turnstile" data-sitekey="{esc(cfg['turnstile_sitekey'])}"
-         data-theme="auto" data-appearance="interaction-only"></div>
+         data-action="newsletter_subscribe" data-theme="auto"
+         data-appearance="interaction-only"></div>
     <button type="submit">Subscribe for future updates</button>
   </form>
 
@@ -503,7 +527,7 @@ def build_subscribe(site, tpl, cfg):
         path="subscribe.html",
         main=main,
         items=[],
-        csp_extra=SUBSCRIBE_CSP,
+        csp_extra=subscribe_csp(cfg),
         head_extra='<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"'
                    ' async defer></script>',
     )
@@ -532,19 +556,24 @@ def build_privacy(site, tpl):
         path="privacy.html",
         main=f"""{analytics}<h2>If you subscribe</h2>
 
-  <p><strong>What is collected.</strong> Your email address, and nothing else. No name, no
-    account, no record of what you open.</p>
+  <p><strong>What is collected.</strong> Your email address. There is no name, account, or
+    record of what you open. On the signup page, Cloudflare Turnstile also processes the
+    technical request data needed to distinguish people from automated abuse.</p>
 
   <p><strong>Why.</strong> Solely to send you the findings when they are published. It is
     used for nothing else and never will be.</p>
 
-  <p><strong>The legal basis is your consent.</strong> You gave it by entering the address,
-    and you can withdraw it at any time by unsubscribing.</p>
+  <p><strong>The email use is based on your consent.</strong> You gave it by entering the
+    address, and you can withdraw it at any time by unsubscribing. The anti-abuse check is
+    used only to secure the signup form.</p>
 
-  <p><strong>Where it is held.</strong> In a Google Form and the sheet behind it, readable
-    only by the author of this site. Google processes it as part of providing that service.</p>
+  <p><strong>Where it is held.</strong> The address is stored in a Google Form and the sheet
+    behind it, readable only by the author of this site. The signup Worker verifies the
+    Turnstile result and passes the address to Google; it does not keep its own copy.</p>
 
-  <p><strong>Sharing.</strong> Your address is never sold, rented, or given to anyone.</p>
+  <p><strong>Sharing.</strong> Your address is never sold or rented. Google and Cloudflare
+    process signup data only to provide the storage and anti-abuse services described
+    above.</p>
 
   <p><strong>How long.</strong> Until you unsubscribe, at which point it is deleted.</p>
 
@@ -765,6 +794,10 @@ def main():
     cfg = subscribe_config(site)
     if cfg:
         write(DIST / "subscribe.html", build_subscribe(site, tpl, cfg))
+    else:
+        # A local build may previously have used deployment variables. Do not
+        # leave that old page behind after configuration is removed.
+        (DIST / "subscribe.html").unlink(missing_ok=True)
 
     pages = DIST / "items"
     pages.mkdir(exist_ok=True)
