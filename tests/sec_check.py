@@ -99,6 +99,56 @@ check("CSP no unsafe-inline anywhere", "unsafe-inline" not in policy)
 check("CSP base-uri and form-action locked",
       "base-uri 'none'" in policy and "form-action 'none'" in policy)
 
+
+# --- the subscribe page widens the policy, and nothing else may -------------
+# One page needs Turnstile and the Google Forms endpoint. Loosening the whole site
+# to suit it would trade the strongest thing here for a signup box, so the widening
+# is per-page and this is what holds it there.
+
+def directive(pol, name):
+    """The value of one directive, or '' when it is absent entirely."""
+    for part in pol.split("; "):
+        if part.split(" ")[0] == name:
+            return part[len(name):].strip()
+    return ""
+
+
+check("CSP: no page loads third-party javascript by default",
+      "cloudflare" not in policy and "docs.google" not in policy)
+check("CSP: frame-src is absent by default, so default-src none blocks frames",
+      directive(policy, "frame-src") == "")
+
+sub_policy = r.csp(tpl, site, r.SUBSCRIBE_CSP)
+
+check("CSP subscribe: turnstile may load, and only turnstile",
+      directive(sub_policy, "script-src").endswith("https://challenges.cloudflare.com"))
+check("CSP subscribe: turnstile may frame, and only turnstile",
+      directive(sub_policy, "frame-src") == "https://challenges.cloudflare.com")
+# A widened form-action is the one that would actually hurt: it is what stops a
+# form on this site posting a reader's address somewhere it should not.
+check("CSP subscribe: form-action is exactly Google, not a wildcard",
+      directive(sub_policy, "form-action") == "https://docs.google.com")
+check("CSP subscribe: connect-src is exactly Google, not a wildcard",
+      directive(sub_policy, "connect-src") == "https://docs.google.com")
+check("CSP subscribe: 'none' was replaced, never appended to",
+      "'none' https" not in sub_policy)
+check("CSP subscribe: still no unsafe-inline", "unsafe-inline" not in sub_policy)
+check("CSP subscribe: default-src still none",
+      "default-src 'none'" in sub_policy)
+check("CSP subscribe: base-uri still locked", "base-uri 'none'" in sub_policy)
+
+# The page only exists once all three values are in, so a half-filled config cannot
+# put a dead form on the site.
+check("subscribe: absent until configured", r.subscribe_config(site) is None)
+check("subscribe: a partial config counts as absent",
+      r.subscribe_config({"subscribe": {"form_id": "x", "entry_id": "",
+                                        "turnstile_sitekey": "z"}}) is None)
+check("subscribe: all three present is configured",
+      r.subscribe_config({"subscribe": {"form_id": "x", "entry_id": "y",
+                                        "turnstile_sitekey": "z"}}) is not None)
+check("subscribe: no nav link while unconfigured",
+      "Subscribe" not in [l["label"] for l in r.nav_links(site)])
+
 width = max(len(n) for n, _, _ in results)
 for name, passed, detail in results:
     print(f"  [{'PASS' if passed else 'FAIL'}] {name.ljust(width)}  {detail}")

@@ -133,6 +133,60 @@ the day before.
 
 Harvests are kept in `../harvests/` beside the repo, last 50, never committed.
 
+## Email subscription
+
+`/subscribe.html` collects addresses through a Google Form, because a static site on
+Pages has nowhere to receive a POST. **The page does not exist until all three values in
+`site.json` are filled in** — `form_id`, `entry_id` and `turnstile_sitekey` — and while
+they are blank there is no page, no nav link, and every page's CSP is untouched. Half a
+config would put a dead form on the site, so it counts as none.
+
+Where to get them: `form_id` is the `1FAIpQLS…` string in the form's URL; `entry_id`
+comes from the form's *Get prefilled link* (fill anything, copy the link, read the
+`entry.NNNNNNN` out of it); `turnstile_sitekey` is the **public** Cloudflare key — the
+secret one has no use here and must never be committed.
+
+The form keeps a real `action` and `method`, so with JavaScript off it posts straight to
+Google and Google confirms it. With JavaScript on it posts in the background and swaps in
+a thank-you instead, which keeps the reader here — at a price worth knowing: **Google
+sends no CORS headers, so the page cannot tell success from failure.** A rejected request
+is handed back to the plain POST rather than swallowed, but an accepted-looking one proves
+nothing.
+
+**Turnstile is a gate on this form, not on the endpoint.** Nothing verifies the token —
+that needs a server call to Cloudflare, and Google Forms will not make one. It stops bots
+driving this page; it does nothing about a direct POST to the Google URL, which is public
+and sits in this page's source. Since sending is manual, reading the list before you send
+is the control that actually works.
+
+Only `subscribe.html` gets the four CSP additions it needs (Turnstile's script and frame,
+Google's form-action and connect-src). Every other page keeps `form-action 'none'`,
+`connect-src 'none'`, and no third-party JavaScript at all. `tests/sec_check.py` holds
+that line.
+
+### Sending
+
+Nothing is sent automatically and there is no mail credential in this repo.
+
+    python publish.py --newsletter              the items added by the last publish
+    python publish.py --newsletter 2026-08-20   everything with that published date
+
+It writes an HTML mail and a plain-text twin to `../newsletters/`, beside the harvests and
+outside the repo. You export the list from the sheet, paste the HTML in, and send it
+yourself. The default is derived from git — the items that appeared in the most recent
+commit to `content/items.json` — because "what I just published" is not the same question
+as "what shares today's date": a batch routinely mixes a recall from yesterday with a
+study from last month.
+
+Every mailing carries an unsubscribe address (`subscribe.unsubscribe`, falling back to
+`security_contact`). `--newsletter` warns loudly if neither is set, because a bulk mail
+without one should not go out.
+
+`/privacy.html` is built unconditionally and says what is collected, why, on what basis,
+and how to be removed. While `fathom_site_id` is blank it also states outright that there
+is no analytics and no cookies — that sentence is the first thing that has to change if
+analytics is ever switched on.
+
 ## The contract with Hermes
 
 The site reads exactly one file. Hermes writes it, `render.py` renders it, and

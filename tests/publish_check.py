@@ -456,9 +456,93 @@ check("schema: and cannot inject markup into the page body",
 two = [one, {**one, "url": "https://src.example/y", "published": "2026-07-01"}]
 sm = render.sitemap(site, two)
 stamps = re.findall(r"<lastmod>([^<]+)</lastmod>", sm)
+locs = re.findall(r"<loc>([^<]+)</loc>", sm)
 check("sitemap: item pages carry their own dates", "2026-07-01" in stamps, str(stamps))
 check("sitemap: not one date repeated for everything", len(set(stamps)) > 1, str(set(stamps)))
-check("sitemap: one entry per page plus index and archive", len(stamps) == len(two) + 2)
+# Named rather than counted: a bare arithmetic check stays green when a standing
+# page silently stops being listed, because the total still adds up.
+STANDING = ("/", "/archive.html", "/privacy.html")
+check("sitemap: every standing page is listed",
+      all(any(l.endswith(pth) for l in locs) for pth in STANDING), str(locs))
+check("sitemap: one entry per item, nothing listed twice",
+      len(locs) == len(set(locs)) == len(two) + len(STANDING), str(len(locs)))
+check("sitemap: no subscribe entry while it is unconfigured",
+      not any("subscribe" in l for l in locs))
+
+
+# --- the subscribe page: absent until it would work, correct when it does ----
+# A form posting to the wrong entry id looks perfect and drops every address on the
+# floor, so what is asserted here is the wiring, not the wording.
+
+SUB = {"form_id": "1FAIpQLSexample", "entry_id": "entry.987654321",
+       "turnstile_sitekey": "0x4AAAAAAAexample"}
+configured = dict(site, subscribe=SUB)
+sub_page = render.build_subscribe(configured, tpl_txt, SUB)
+
+check("subscribe: posts to the configured form",
+      f'action="https://docs.google.com/forms/d/e/{SUB["form_id"]}/formResponse"' in sub_page)
+check("subscribe: the field carries the configured entry id",
+      f'name="{SUB["entry_id"]}"' in sub_page)
+check("subscribe: the turnstile sitekey is the configured one",
+      f'data-sitekey="{SUB["turnstile_sitekey"]}"' in sub_page)
+check("subscribe: turnstile is loaded only here",
+      "challenges.cloudflare.com/turnstile" in sub_page
+      and "challenges.cloudflare.com/turnstile" not in render.build_privacy(site, tpl_txt))
+# Without method=post the browser appends the address to the url as a query string,
+# which puts it in history, logs and the referrer.
+check("subscribe: submits by POST, never as a query string",
+      'method="post"' in sub_page)
+check("subscribe: the input is a real email field, and required",
+      'type="email"' in sub_page and "required" in sub_page)
+check("subscribe: the placeholder is not doing the job of a label",
+      'class="vh" for="subscribe-email"' in sub_page)
+check("subscribe: it links to the privacy policy", 'href="/privacy.html"' in sub_page)
+# The form is display:flex, which beats the UA stylesheet's [hidden]{display:none}.
+# Without this rule the thank-you appeared *under* a form that never went away.
+check("subscribe: hidden actually hides, even with display:flex set",
+      "[hidden]{display:none !important}" in tpl_txt)
+check("subscribe: nav gains the link only when configured",
+      "Subscribe" in [l["label"] for l in render.nav_links(configured)]
+      and "Subscribe" not in [l["label"] for l in render.nav_links(site)])
+
+priv = render.build_privacy(site, tpl_txt)
+check("privacy: says what is collected and on what basis",
+      "email address" in priv and "consent" in priv)
+check("privacy: tells the reader how to get removed", "unsubscrib" in priv.lower())
+check("privacy: does not claim analytics that are not configured",
+      ("no analytics" in priv) == (not site.get("fathom_site_id")))
+
+
+# --- the mailing: what you just published, not what happens to share a date --
+# Filtering by the source's published date splits a batch apart, because one publish
+# routinely mixes a recall from yesterday with a study from last month.
+
+mail_items = [
+    {"title": "Recall you can act on", "url": "https://www.cpsc.gov/r", "source": "CPSC",
+     "pillar": "practical", "why": "Stop using it.", "published": "2026-08-13", "score": 88},
+    {"title": "A learning finding", "url": "https://www.nature.com/n", "source": "Nature",
+     "pillar": "education", "why": "Space your revision.", "published": "2026-07-02", "score": 74},
+]
+mail_html, mail_text = render.build_email(site, mail_items, "2026-08-20")
+
+check("mail: every item appears", all(i["title"] in mail_html for i in mail_items))
+check("mail: items link to this site, not straight to the source",
+      mail_html.count(site["url"].rstrip("/") + "/items/") == len(mail_items))
+# Mail clients drop <style> blocks and know nothing of custom properties, so a
+# stylesheet here would arrive as unstyled text.
+check("mail: styling is inline, with no stylesheet to be stripped",
+      "<style" not in mail_html and "var(--" not in mail_html)
+check("mail: it carries an unsubscribe route", "Unsubscribe" in mail_html)
+check("mail: the plain-text twin carries one too", "Unsubscribe" in mail_text)
+check("mail: a title with markup in it cannot break out",
+      "&lt;script&gt;" in render.build_email(
+          site, [dict(mail_items[0], title="<script>x</script>")], "2026-08-20")[0])
+check("mail: unsubscribe falls back to the security contact rather than nowhere",
+      render.unsubscribe_to(site) == site["security_contact"])
+check("mail: an explicit unsubscribe address wins",
+      render.unsubscribe_to(dict(site, subscribe={"unsubscribe": "bye@e.org"})) == "bye@e.org")
+check("mail: drafts land outside the repo, so they can never be committed",
+      publish.ROOT not in publish.MAIL_DIR.parents and publish.MAIL_DIR.name == "newsletters")
 
 
 # --- the git path, exercised in a throwaway repo so CI covers it too ---------

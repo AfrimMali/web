@@ -72,6 +72,10 @@ KEEP_HARVESTS = 50
 # notes, not site content, and nothing here is ever committed.
 HARVEST_DIR = ROOT.parent / "harvests"
 
+# Drafted mail, beside the harvests and for the same reason: it is working
+# material, not site content, and nothing here is ever committed.
+MAIL_DIR = ROOT.parent / "newsletters"
+
 # The instruction Hermes is given. Editing that file is how you retune what counts as
 # worth publishing - the score bar, how recent, which sources, how long the brief.
 SKILL_REL = ("profiles", PROFILE, "skills", "signal", "harvest", "SKILL.md")
@@ -576,6 +580,64 @@ def publish_items(items):
         f"  ({len(merged)} total)")
 
 
+def last_published_batch():
+    """Urls that were already live before the most recent publish, or None.
+
+    "What did I just publish" is a different question from "what was published on
+    this date": a batch routinely mixes a recall from yesterday with a study from
+    last month, so filtering by the source's date splits it apart. Git knows which
+    items appeared last, so ask it rather than guessing from the content.
+    """
+    try:
+        hist = git("log", "--format=%H", "-n", "2", "--", TRACKED).splitlines()
+        if len(hist) < 2:
+            return None
+        before = json.loads(git("show", f"{hist[1]}:{TRACKED}", raw=True))
+    except (RuntimeError, json.JSONDecodeError, OSError):
+        return None
+    return {i.get("url") for i in before.get("items", []) if isinstance(i, dict)}
+
+
+def draft_newsletter(site, day=None):
+    """Write the last publish as a ready-to-send email, and return the paths.
+
+    Nothing is sent from here. There is no mail credential in this repo and there
+    should not be - you export the list from the sheet, paste the html in, and
+    press send yourself. Same shape as everything else here: it starts when you
+    ask, and it is over when you are done.
+    """
+    items = published_items()
+    if not items:
+        raise RuntimeError("nothing is published yet.")
+
+    if day:
+        chosen = [i for i in items if str(i.get("published") or "") == day]
+        stamp, what = day, f"published on {day}"
+    else:
+        seen = last_published_batch()
+        if seen is None:
+            # No second version to compare against - fall back to the newest date
+            # rather than mailing the entire archive.
+            newest = max((str(i.get("published") or "") for i in items), default="")
+            chosen = [i for i in items if str(i.get("published") or "") == newest]
+            stamp, what = newest, f"published on {newest} (no earlier commit to compare)"
+        else:
+            chosen = [i for i in items if i.get("url") not in seen]
+            stamp = datetime.now().strftime("%Y-%m-%d")
+            what = "added by the last publish"
+
+    if not chosen:
+        raise RuntimeError(f"no items {what} - nothing to write about.")
+
+    html, text = render.build_email(
+        site, sorted(chosen, key=render.sort_key, reverse=True), stamp)
+    MAIL_DIR.mkdir(parents=True, exist_ok=True)
+    paths = (MAIL_DIR / f"{stamp}.html", MAIL_DIR / f"{stamp}.txt")
+    render.write(paths[0], html)
+    render.write(paths[1], text)
+    return paths, len(chosen), what
+
+
 def rollback():
     """Restore the previously published items.json.
 
@@ -842,9 +904,25 @@ def main():
                     help="never start a harvest; just show what is already there")
     ap.add_argument("--harvest", action="store_true",
                     help="run a fresh harvest even if today already has one")
+    ap.add_argument("--newsletter", nargs="?", const=True, metavar="YYYY-MM-DD",
+                    help="draft the email for a day's items and exit; defaults to "
+                         "the newest published date")
     args = ap.parse_args()
 
     site = render.load_json(render.SITE)
+
+    if args.newsletter:
+        day = None if args.newsletter is True else args.newsletter
+        (html_path, text_path), count, what = draft_newsletter(site, day)
+        off = render.unsubscribe_to(site)
+        print(f"{count} item(s) {what}")
+        print(f"  {html_path}")
+        print(f"  {text_path}")
+        print("  paste the html into your mail client and BCC the list from the sheet")
+        if not off:
+            print("  WARNING: no unsubscribe address is configured, and a bulk mail "
+                  "without one should not go out. Set subscribe.unsubscribe in site.json.")
+        return
 
     if args.source:
         src, fresh = Path(args.source), True

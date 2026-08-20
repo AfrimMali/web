@@ -330,13 +330,17 @@ def jsonld(site, page_title, url, items):
     return escape_ld(blob)
 
 
-def csp(tpl, site):
+def csp(tpl, site, extra=None):
     """Content-Security-Policy for the meta tag.
 
     GitHub Pages cannot send response headers, so this goes in <meta>. Hashes
     are computed from the template's own inline scripts at build time, so the
     policy can never drift out of sync with them. frame-ancestors is omitted
     because meta CSP does not support it.
+
+    `extra` widens named directives for ONE page. The subscribe page needs
+    Turnstile and the Google Forms endpoint; no other page does, and a policy
+    loosened everywhere to suit one page is not much of a policy.
     """
     def digests(tag):
         return " ".join(
@@ -348,28 +352,70 @@ def csp(tpl, site):
         script += " https://cdn.usefathom.com"
         connect = "https://cdn.usefathom.com"
 
-    return "; ".join((
-        "default-src 'none'",
-        f"script-src {script}",
+    policy = {
+        "default-src": "'none'",
+        "script-src": script,
         # The <style> block is static, so it hashes like the scripts do and
         # 'unsafe-inline' is unnecessary. Injected CSS can exfiltrate data via
         # attribute selectors and background-image URLs, so this is worth closing.
         # The googleapis origin covers the linked font stylesheet.
-        f"style-src {digests('style')} https://fonts.googleapis.com",
-        "font-src https://fonts.gstatic.com",
-        "img-src 'self' data:",
-        f"connect-src {connect}",
-        "base-uri 'none'",
-        "form-action 'none'",
-    ))
+        "style-src": f"{digests('style')} https://fonts.googleapis.com",
+        "font-src": "https://fonts.gstatic.com",
+        "img-src": "'self' data:",
+        "connect-src": connect,
+        "base-uri": "'none'",
+        "form-action": "'none'",
+    }
+
+    for name, origins in (extra or {}).items():
+        # "'none' https://x" is not a widened directive - it is an invalid one, and
+        # browsers drop it whole. A directive at 'none' is replaced, not appended to.
+        current = policy.get(name, "")
+        policy[name] = origins if current in ("'none'", "") else f"{current} {origins}"
+
+    return "; ".join(f"{k} {v}".strip() for k, v in policy.items())
 
 
-def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=None):
+# The origins the subscribe page needs, and the only page that ever gets them.
+# script-src and frame-src are what Cloudflare documents for Turnstile; it needs no
+# style-src exception, so "no unsafe-inline anywhere" survives. form-action covers
+# the no-javascript fallback POST, connect-src the fetch that replaces it.
+SUBSCRIBE_CSP = {
+    "script-src": "https://challenges.cloudflare.com",
+    "frame-src": "https://challenges.cloudflare.com",
+    "form-action": "https://docs.google.com",
+    "connect-src": "https://docs.google.com",
+}
+
+
+def subscribe_config(site):
+    """The three values the subscribe page needs, or None if any is missing.
+
+    All three or nothing. A form without its entry id posts into the void, and a
+    page carrying no sitekey renders a widget that never resolves - half-configured
+    fails silently in ways that look like working, so it is treated as absent.
+    """
+    raw = site.get("subscribe") or {}
+    got = {k: str(raw.get(k) or "").strip()
+           for k in ("form_id", "entry_id", "turnstile_sitekey")}
+    return got if all(got.values()) else None
+
+
+def nav_links(site):
+    """Header links, with Subscribe appearing only once it would work."""
+    links = list(site.get("links", []))
+    if subscribe_config(site):
+        links.append({"label": "Subscribe", "href": "/subscribe.html"})
+    return links
+
+
+def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=None,
+               csp_extra=None, head_extra=""):
     base = site["url"].rstrip("/")
     canonical = f"{base}/{path}".replace("/index.html", "/")
 
     nav = "".join(
-        f'<a href="{esc(l["href"])}">{esc(l["label"])}</a>' for l in site.get("links", [])
+        f'<a href="{esc(l["href"])}">{esc(l["label"])}</a>' for l in nav_links(site)
     )
 
     fathom = ""
@@ -384,7 +430,8 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=No
         "{{PAGE_TITLE}}": esc(page_title),
         "{{DESC}}": esc(desc),
         "{{AUTHOR}}": esc(site.get("author", "")),
-        "{{CSP}}": esc(csp(tpl, site)),
+        "{{CSP}}": esc(csp(tpl, site, csp_extra)),
+        "{{HEAD_EXTRA}}": head_extra,
         "{{CANONICAL}}": esc(canonical),
         "{{NAV}}": nav,
         "{{LEDE}}": lede,
@@ -398,6 +445,166 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=No
     # pass -- matters once Hermes writes scraped content into items.json.
     return re.sub(r"\{\{[A-Z_]+\}\}",
                   lambda m: values.get(m.group(0), m.group(0)), tpl)
+
+
+def build_subscribe(site, tpl, cfg):
+    """The email signup page.
+
+    One field posting to a Google Form, which is the whole backend: a static site
+    on Pages has nowhere to receive a POST. The form keeps a real action and
+    method, so with javascript off it still submits - that fallback is the only
+    path that can actually confirm receipt, because Google sends no CORS headers
+    and the fetch below can never see its own result.
+    """
+    action = ("https://docs.google.com/forms/d/e/"
+              f"{esc(cfg['form_id'])}/formResponse")
+    main = f"""<p class="sub-lede">An email when new findings go up. No more than one a day,
+    and nothing else — the same items, in the same words, as the ones on this page.</p>
+
+  <form id="subscribe-form" class="subscribe" action="{action}" method="post"
+        target="_blank" rel="noopener">
+    <label class="vh" for="subscribe-email">Email address</label>
+    <input id="subscribe-email" name="{esc(cfg['entry_id'])}" type="email" required
+           autocomplete="email" maxlength="256" placeholder="Enter your email">
+    <div class="cf-turnstile" data-sitekey="{esc(cfg['turnstile_sitekey'])}"
+         data-theme="auto" data-appearance="interaction-only"></div>
+    <button type="submit">Subscribe for future updates</button>
+  </form>
+
+  <p id="subscribe-note" class="sub-note" role="status" hidden></p>
+
+  <p id="subscribe-done" class="sub-done" tabindex="-1" hidden>Thank you — that address is
+    on the list. You will hear from this site only when something is published.</p>
+
+  <p class="sub-privacy"><a href="/privacy.html">Privacy policy</a></p>"""
+
+    return build_page(
+        site, tpl,
+        page_title=f"Subscribe — {site['title']}",
+        desc=f"Get an email when {site['title']} publishes something new.",
+        path="subscribe.html",
+        main=main,
+        items=[],
+        csp_extra=SUBSCRIBE_CSP,
+        head_extra='<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"'
+                   ' async defer></script>',
+    )
+
+
+def build_privacy(site, tpl):
+    """What is collected and why.
+
+    Written plainly and kept true to what the site actually does: while there is no
+    analytics id configured, this says so outright rather than hedging. If that ever
+    changes, this page is the first thing that has to change with it.
+    """
+    contact = esc(site.get("security_contact") or "")
+    reach = (f'<a href="mailto:{contact}">{contact}</a>' if contact
+             else "the address in the site footer")
+    analytics = ("" if site.get("fathom_site_id") else
+                 """<p>There is no analytics on this site, no cookies, and no third-party
+    tracking of any kind. Nothing is stored in your browser except the light or dark
+    setting you choose, which never leaves it.</p>
+
+  """)
+    return build_page(
+        site, tpl,
+        page_title=f"Privacy — {site['title']}",
+        desc=f"What {site['title']} collects, why, and how to have it removed.",
+        path="privacy.html",
+        main=f"""{analytics}<h2>If you subscribe</h2>
+
+  <p><strong>What is collected.</strong> Your email address, and nothing else. No name, no
+    account, no record of what you open.</p>
+
+  <p><strong>Why.</strong> Solely to send you the findings when they are published. It is
+    used for nothing else and never will be.</p>
+
+  <p><strong>The legal basis is your consent.</strong> You gave it by entering the address,
+    and you can withdraw it at any time by unsubscribing.</p>
+
+  <p><strong>Where it is held.</strong> In a Google Form and the sheet behind it, readable
+    only by the author of this site. Google processes it as part of providing that service.</p>
+
+  <p><strong>Sharing.</strong> Your address is never sold, rented, or given to anyone.</p>
+
+  <p><strong>How long.</strong> Until you unsubscribe, at which point it is deleted.</p>
+
+  <p><strong>Unsubscribing.</strong> Every email carries an unsubscribe address. You can
+    also write to {reach} and ask to be removed — no reason needed, and it will be done.</p>
+
+  <p><strong>Your rights.</strong> You can ask what is held about you, ask for it to be
+    corrected, or ask for it to be erased. Write to {reach}.</p>""",
+        items=[],
+    )
+
+
+def unsubscribe_to(site):
+    """The address a reader writes to in order to be removed.
+
+    Falls back to the security contact rather than to nothing: a mail with no way
+    off the list is the one thing a newsletter must never be, and an address that
+    at least reaches a human beats a dead link.
+    """
+    sub = site.get("subscribe") or {}
+    return (str(sub.get("unsubscribe") or "").strip()
+            or str(site.get("security_contact") or "").strip())
+
+
+def build_email(site, items, day):
+    """The day's items as an email: (html, plain text).
+
+    Not built from the page template. Mail clients strip <style> blocks and know
+    nothing of custom properties, so every rule here is inline and the palette is
+    literal. Items link back to their page on the site rather than to the source,
+    so the brief travels with the link.
+    """
+    base = site["url"].rstrip("/")
+    off = unsubscribe_to(site)
+    bye_html = (f'<a href="mailto:{esc(off)}?subject=Unsubscribe" '
+                f'style="color:#5E5D59">Unsubscribe</a>' if off else "Unsubscribe")
+    bye_text = f"Unsubscribe: email {off} with the subject Unsubscribe" if off else ""
+
+    blocks, lines = [], []
+    for i in items:
+        link = f"{base}/items/{slug_for(i)}.html"
+        label = site["pillars"].get(i["pillar"], i["pillar"])
+        blocks.append(
+            f'<tr><td style="padding:0 0 26px">'
+            f'<div style="font:12px/1.4 Helvetica,Arial,sans-serif;color:#5E5D59;'
+            f'text-transform:uppercase;letter-spacing:.08em">'
+            f'{esc(label)} &middot; {esc(i["source"])}</div>'
+            f'<div style="margin:6px 0 4px"><a href="{esc(link)}" '
+            f'style="font:700 18px/1.35 Georgia,serif;color:#1F1E1D;text-decoration:none">'
+            f'{esc(i["title"])}</a></div>'
+            f'<div style="font:16px/1.5 Georgia,serif;color:#3D3D3A">'
+            f'{esc(i.get("why") or "")}</div></td></tr>')
+        lines.append(f'{label} / {i["source"]}\n{i["title"]}\n'
+                     f'{i.get("why") or ""}\n{link}\n')
+
+    plural = "" if len(items) == 1 else "s"
+    html = (
+        '<!doctype html><html><body style="margin:0;padding:0;background:#F0EEE6">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#F0EEE6"><tr><td align="center" style="padding:32px 16px">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="max-width:560px">'
+        f'<tr><td style="padding:0 0 8px"><a href="{esc(base)}/" '
+        'style="font:700 26px/1.1 Georgia,serif;color:#1F1E1D;text-decoration:none">'
+        f'{esc(site["title"])}</a></td></tr>'
+        '<tr><td style="font:14px/1.5 Georgia,serif;color:#5E5D59;padding:0 0 28px">'
+        f'{esc(day)} &middot; {len(items)} finding{plural}</td></tr>'
+        + "".join(blocks) +
+        '<tr><td style="border-top:1px solid #D1CFC5;padding:18px 0 0;'
+        'font:12px/1.6 Helvetica,Arial,sans-serif;color:#5E5D59">'
+        'You are getting this because you asked for an email when '
+        f'{esc(site["title"])} publishes. {bye_html}</td></tr>'
+        '</table></td></tr></table></body></html>\n')
+
+    text = (f'{site["title"]} - {day} - {len(items)} finding{plural}\n\n'
+            + "\n".join(lines)
+            + f'\n---\n{bye_text}\n')
+    return html, text
 
 
 def build_index(site, tpl, items):
@@ -485,7 +692,9 @@ def sitemap(site, items, payload=None):
     # lastmod - the same failure the comment above warns about, by another route.
     # Listing pages move when the newest item does; an item page moves when it
     # was published.
-    entries = [("/", day), ("/archive.html", day)]
+    entries = [("/", day), ("/archive.html", day), ("/privacy.html", day)]
+    if subscribe_config(site):
+        entries.append(("/subscribe.html", day))
     for i in items:
         d = parse_date(i.get("published")) or newest
         entries.append((f"/items/{slug_for(i)}.html",
@@ -533,6 +742,12 @@ def main():
         items=items,
     ))
 
+    write(DIST / "privacy.html", build_privacy(site, tpl))
+
+    cfg = subscribe_config(site)
+    if cfg:
+        write(DIST / "subscribe.html", build_subscribe(site, tpl, cfg))
+
     pages = DIST / "items"
     pages.mkdir(exist_ok=True)
     for item in items:
@@ -550,14 +765,20 @@ def main():
         (DIST / ".well-known").mkdir(exist_ok=True)
         write(DIST / ".well-known" / "security.txt", sec)
 
-    print(f"wrote {DIST}/ — index, archive, feed, sitemap, robots, icons")
+    print(f"wrote {DIST}/ — index, archive, privacy, feed, sitemap, robots, icons"
+          + (", subscribe" if cfg else "")
+          + ("" if cfg else "   (no subscribe page: site.json 'subscribe' is not filled in)"))
 
     if args.serve:
         import http.server, socketserver, os
         os.chdir(DIST)
         print("http://localhost:8000  (ctrl-c to stop)")
-        socketserver.TCPServer(("127.0.0.1", 8000),
-                               http.server.SimpleHTTPRequestHandler).serve_forever()
+        # Threading, for the same reason publish.py's review server needs it: an
+        # HTTP/1.1 keep-alive connection from a browser is held open, and a
+        # single-connection loop then blocks every other request behind it.
+        socketserver.ThreadingTCPServer.allow_reuse_address = True
+        socketserver.ThreadingTCPServer(("127.0.0.1", 8000),
+                                        http.server.SimpleHTTPRequestHandler).serve_forever()
 
 
 if __name__ == "__main__":

@@ -69,6 +69,36 @@
     --rule:#3D3D3A; --hover:#3D3D3A;
   }
 
+  /* subscribe: one field and one button, stacked and the same width. The button
+     inverts the palette because it is the only call to action on the site. */
+  .sub-lede{font-family:var(--serif);font-size:1.05rem;margin:2.6rem 0 1.8rem;max-width:34rem}
+  .subscribe{display:flex;flex-direction:column;gap:.65rem;max-width:34rem}
+  .subscribe input[type=email]{
+    font:inherit;font-family:var(--serif);font-size:1rem;
+    padding:.85rem 1rem;border-radius:8px;border:1px solid var(--rule);
+    background:transparent;color:var(--fg);width:100%;
+  }
+  .subscribe input[type=email]::placeholder{color:var(--muted)}
+  .subscribe input[type=email]:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+  .subscribe button{
+    font:inherit;font-family:var(--serif);font-size:1rem;
+    padding:.85rem 1rem;border-radius:8px;border:1px solid var(--fg);
+    background:var(--fg);color:var(--bg);cursor:pointer;
+  }
+  .subscribe button:hover{opacity:.88}
+  .sub-done{font-family:var(--serif);font-size:1.05rem;max-width:34rem}
+  .sub-note{font-family:var(--sans);font-size:.85rem;color:var(--muted);max-width:34rem;margin:0}
+  .sub-privacy{margin-top:1.5rem;max-width:34rem;text-align:center}
+  /* visible to a screen reader, not on screen - the input has a placeholder, which
+     is not a label */
+  .vh{position:absolute;width:1px;height:1px;overflow:hidden;
+      clip:rect(0 0 0 0);white-space:nowrap}
+
+  /* An explicit display value beats the UA stylesheet's [hidden]{display:none},
+     so .subscribe{display:flex} kept the form on screen after it was hidden. This
+     is the standard guard, and it protects anything hidden later too. */
+  [hidden]{display:none !important}
+
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{
@@ -198,6 +228,7 @@
 </style>
 
 <script type="application/ld+json">{{JSONLD}}</script>
+{{HEAD_EXTRA}}
 </head>
 <body>
 <div class="wrap">
@@ -218,6 +249,7 @@
   <footer class="end">
     <span>Updated {{UPDATED}}</span>
     <span><a href="/feed.xml">Subscribe by feed</a></span>
+    <span><a href="/privacy.html">Privacy</a></span>
   </footer>
 
 </div>
@@ -233,6 +265,47 @@
     try { localStorage.setItem("theme", root.className); } catch (e) {}
     sync();
   });
+
+  // Subscribe. The form has a real action and method, so with javascript off it
+  // posts straight to Google and Google confirms it - that fallback is the only
+  // path that can actually prove receipt. Here we keep the reader on the page
+  // instead, at the cost of never knowing: Google sends no CORS headers, so a
+  // no-cors fetch resolves opaque whether it worked or not. A rejected fetch does
+  // mean failure, and is handed back to the plain POST rather than swallowed.
+  var subForm = document.getElementById("subscribe-form");
+  var subDone = document.getElementById("subscribe-done");
+  var subNote = document.getElementById("subscribe-note");
+  if (subForm && subDone) {
+    subForm.addEventListener("submit", function (e) {
+      // Turnstile injects its token here. Nothing verifies it - Google Forms will
+      // not, and there is no server that could - so this gates our own form only.
+      // A silent refusal reads as a broken button. If the check has not resolved
+      // yet - slow network, or an extension holding it up - say so.
+      var tok = subForm.querySelector('[name="cf-turnstile-response"]');
+      if (tok && !tok.value) {
+        e.preventDefault();
+        if (subNote) {
+          subNote.textContent = "The spam check has not finished yet. Give it a moment and press the button again.";
+          subNote.hidden = false;
+        }
+        return;
+      }
+      if (subNote) { subNote.hidden = true; }
+      if (!window.fetch || !window.URLSearchParams) { return; }
+      e.preventDefault();
+      fetch(subForm.action, {
+        method: "POST",
+        mode: "no-cors",
+        body: new URLSearchParams(new FormData(subForm))
+      }).then(function () {
+        subForm.hidden = true;
+        subDone.hidden = false;
+        subDone.focus();
+      }, function () {
+        subForm.submit();
+      });
+    });
+  }
 
   var more = document.getElementById("more");
   var about = document.getElementById("about");
