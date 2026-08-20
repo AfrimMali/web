@@ -1,6 +1,66 @@
 {
-  "generated_at": "2026-08-19T15:40:45Z",
+  "generated_at": "2026-08-20T08:13:56Z",
   "items": [
+    {
+      "title": "CISA adds four actively exploited flaws to its catalog, including a macOS Screen Sharing bypass that needs no password",
+      "url": "https://www.cisa.gov/news-events/alerts/2026/08/18/cisa-adds-four-known-exploited-vulnerabilities-catalog",
+      "source": "CISA",
+      "pillar": "technology",
+      "why": "Update macOS now - the Screen Sharing flaw (fixed Aug 6 in Tahoe 26.6.1, with Sequoia and Sonoma updates the same day) is under active attack and needs no credentials.",
+      "brief": "On August 18 CISA added four vulnerabilities to its Known Exploited Vulnerabilities catalog on evidence of active exploitation: CVE-2026-65400, an authentication bypass in Apple macOS Screen Sharing; CVE-2026-33824, a Microsoft Internet Key Exchange double-free; CVE-2026-55040, weak authentication in Microsoft SharePoint; and CVE-2026-59310, a VMware vCenter path traversal. For a home reader the macOS one is the story: Apple's advisory states an attacker on the network can authenticate to Screen Sharing without valid credentials, and the fix shipped August 6 via improved state management - on macOS Tahoe that is version 26.6.1, with matching Sequoia and Sonoma releases the same day.\n\nThe action for Mac owners: install the update from System Settings > Software Update, or if you cannot update, turn off Screen Sharing. The other three CVEs concern Microsoft and VMware servers, so the people who need to act on them are IT administrators, who should treat the August Windows updates and vendor patches as urgent. Caveats: the CISA alert itself lists the CVEs and the exploitation evidence; the technical detail on the macOS flaw comes from Apple's advisory. KEV listing means exploitation is confirmed, not hypothetical.",
+      "published": "2026-08-18",
+      "score": 80
+    },
+    {
+      "title": "Dreyer's recalls Outshine fruit bars over possible glass - five flavors and the variety pack, check the batch code",
+      "url": "https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts/updated-dreyers-grand-ice-cream-inc-issues-voluntary-recall-select-outshine-fruit-bars-due-possible",
+      "source": "FDA",
+      "pillar": "practical",
+      "why": "Compare the code under 'Best Before' on Outshine 6-count and 24-count boxes against the FDA list; affected lots can be returned for a full refund.",
+      "brief": "Dreyer's recalled select Outshine Fruit Bars on August 18 because consumer reports found glass in the product. Affected: 6-count 2.5-ounce boxes of Strawberry, Watermelon, Grape, Tangerine and Black Cherry, plus the 24-count 2.5-ounce Variety Pack, sold nationwide. The affected batch codes are printed on the bottom of the packaging (for example LLA616903 through LLA621603, with best-before dates from 30 SEP 2027 to 30 NOV 2027; the FDA page carries the full table). No illnesses or injuries have been reported.\n\nWhat it changes: a two-minute freezer check. If your box matches a listed batch code, dispose of it or return it to the place of purchase for a full refund. Only the listed lots are affected - no other Outshine products are part of this recall.",
+      "published": "2026-08-18",
+      "score": 78
+    },
+    {
+      "title": "FTC: 'refund and recovery' scammers buy lists of past scam victims - anyone offering to recover your money for a fee is scamming you again",
+      "url": "https://consumer.ftc.gov/consumer-alerts/2026/08/have-you-lost-money-scam-watch-scammers-who-say-they-can-help",
+      "source": "FTC",
+      "pillar": "practical",
+      "why": "If someone contacts you offering to get back money you lost to a scam, do not pay any 'fee' and do not share bank details - report it at ReportFraud.ftc.gov.",
+      "brief": "The FTC's August 2026 consumer alert (the page carries the month but no day) warns that refund and recovery scammers buy lists of people who have already been scammed and contact them posing as a government agency - even the FTC - a law firm or a consumer group. They promise to recover the lost money or the prize that never arrived, then demand an upfront 'retainer fee', 'processing fee' or 'administrative charge', or ask for financial information to 'deposit' the refund. Paying loses more money; sharing information can lead to identity theft.\n\nWhat to do: never pay upfront for a refund, never hand over account or Social Security numbers to someone who contacted you. If you already paid a scammer, the FTC's real recovery steps are to contact your bank or card issuer and ask to reverse a wire, card charge or payment-app transfer, then report to the FTC and your state attorney general. The alert's reach is anyone who has lost money to a scam - and the protection is simply hanging up.",
+      "published": "2026-08-15",
+      "score": 73
+    },
+    {
+      "title": "Goody King magnetic building cubes recalled (213,500 sets): loose magnets sent two children to surgery",
+      "url": "https://www.cpsc.gov/Recalls/2026/Goody-King-Magnetic-Building-Cubes-and-Blocks-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Magnetic-Ingestion-Hazard-Imported-by-Yi-Suen-Commerce",
+      "source": "CPSC",
+      "pillar": "practical",
+      "why": "Take Goody King magnetic cubes away from children and contact Yi Suen Commerce at recall.goodyking.com for a full refund with a prepaid return label.",
+      "brief": "CPSC recalled Goody King magnetic building cubes on August 13 because magnets can come loose when a cube breaks or opens. Swallowed high-powered magnets can attract each other inside the body and perforate, twist or block the intestines. There are 27 reports of cubes breaking or opening and two children who ingested magnets and needed surgery to remove them. The sets, sold on Amazon in 45 to 300-piece configurations, come in 19 listed styles (for example Galaxy GL100, Unicorn UN100, Dark Castle DK100 and GC150, Woods WD100); the model number is on the back of the packaging.\n\nAction: stop using them now and email safety@goodyking.com or go to recall.goodyking.com for a full refund; a prepaid label is provided. This recall has a working remedy, which is why it scores above the playset warning despite the smaller unit count.",
+      "published": "2026-08-13",
+      "score": 80
+    },
+    {
+      "title": "Brookstone tabletop fire pits recalled (48,700): flame jetting and pool fires caused second- and third-degree burns",
+      "url": "https://www.cpsc.gov/Recalls/2026/Southern-Telecom-Recalls-Brookstone-Branded-Tabletop-Fire-Pits-Due-to-Risk-of-Serious-Burn-Injury-or-Death-from-Flame-Jetting-and-Fire-Hazards",
+      "source": "CPSC",
+      "pillar": "practical",
+      "why": "If you own a Brookstone tabletop fire pit (models BSFIREPIT01/02/03), stop lighting it and email Southern Telecom a marked photo for a refund.",
+      "brief": "CPSC recalled Brookstone-branded indoor/outdoor tabletop fire pits on August 13. The round or hexagonal concrete reservoirs burn liquid alcohol, and use can produce uncontrolled pool fires across spilled fuel or flame jetting from the container - burns that can be serious or fatal. Southern Telecom has two reports of flame jetting, with two injuries including second- and third-degree burns. Affected models are BSFIREPIT01, BSFIREPIT02 and BSFIREPIT03 (UPCs 680079015930, 680079015947, 680079015954); the model and UPC sit on the bottom of the packaging. About 48,700 units were sold.\n\nRemedy: stop using it, email a photo with 'Recalled', your name and the date written on it to support@customersupport123.com (or call 877-832-3822), then dispose of the unit - do not resell it. The incident count is small, but the injury mechanism is severe and the fix is immediate and free.",
+      "published": "2026-08-13",
+      "score": 76
+    },
+    {
+      "title": "Ford recalls 565,691 Broncos: engine-compartment wiring can short and start a fire - free fix, owner letters begin Aug 24",
+      "url": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V468-6532.pdf",
+      "source": "NHTSA",
+      "pillar": "practical",
+      "why": "Check your Bronco's VIN at nhtsa.gov/recalls now - if it's listed, dealers fit protective wiring covering for free, no need to wait for the letter.",
+      "brief": "Announced July 20 (NHTSA recall 26V468, Ford 26S55): 565,691 Broncos from model years 2021-2026, built between September 23, 2020 and June 28, 2026, are recalled because the engine-compartment wiring harness can chafe against surrounding parts and expose circuits; a short can then arc, produce heat or sparks, and ignite a fire. Ford has 15 fire-related incident reports and estimates about 1% of the population actually has the defect. Drivers may first notice smoke in the vents or a cluster warning before flames appear from the passenger side of the engine bay.\n\nThis recall is now four weeks old and entering its notification phase: dealer notices went out July 23, VINs have been searchable since then, and owner letters mail August 24-28. The action is to check your VIN at nhtsa.gov/recalls or call Ford at 1-866-436-7332 rather than wait for the letter, then book the free remedy - dealers install protective covering on the harness.",
+      "published": "2026-07-20",
+      "score": 73
+    },
     {
       "title": "Cochrane: no reliable evidence that common embryo-transfer preparation techniques improve IVF success",
       "url": "https://www.cochrane.org/about-us/news/no-clear-evidence-common-embryo-transfer-techniques-improve-ivf-success",
