@@ -76,6 +76,10 @@ HARVEST_DIR = ROOT.parent / "harvests"
 # worth publishing - the score bar, how recent, which sources, how long the brief.
 SKILL_REL = ("profiles", PROFILE, "skills", "signal", "harvest", "SKILL.md")
 
+# The same instruction, kept with the site so retuning it leaves a diff. This is
+# the copy that runs; the profile path above is only a fallback.
+SKILL = ROOT / "hermes" / "SKILL.md"
+
 # The server is threaded, so two requests can arrive at once. The button disables
 # itself after a click, but that is the browser's promise, not ours - a second tab
 # holding the same token would otherwise race this one through the git index.
@@ -140,6 +144,19 @@ def harvest_age(path):
     return f"{days} days ago ({when:%d %b, %H:%M})", False
 
 
+def skill_file():
+    """The harvest instruction - the repo copy first.
+
+    Two copies drift apart the moment there are two, and the profile one lives
+    outside version control, so an edit there left no record anywhere of what the
+    site's editorial rule used to be. The repo copy is authoritative: tuning is
+    versioned, and there is no copy step to forget. The profile path stays as a
+    fallback so a checkout predating this still runs, and run_harvest() says which
+    file it read so the two can never quietly disagree.
+    """
+    return SKILL if SKILL.is_file() else hermes_home().joinpath(*SKILL_REL)
+
+
 def run_harvest():
     """Run one research pass now, in the foreground, and save the answer.
 
@@ -151,10 +168,14 @@ def run_harvest():
     exe = shutil.which("hermes")
     if not exe:
         return False, "hermes is not on PATH, so I cannot start a harvest from here."
-    skill = hermes_home().joinpath(*SKILL_REL)
+    skill = skill_file()
     if not skill.is_file():
         return False, f"the harvest instruction is missing: {skill}"
 
+    try:
+        print(f"  instruction: {skill.relative_to(ROOT)}")
+    except ValueError:
+        print(f"  instruction: {skill}   (not the repo copy)")
     print("  researching now - ten items across this many sources takes five to ten minutes")
     prompt = harvest_prompt(skill.read_text(encoding="utf-8"), published_digest())
     try:
@@ -295,11 +316,6 @@ def published_items():
     return [i for i in raw if isinstance(i, dict)] if isinstance(raw, list) else []
 
 
-def published_urls():
-    """Urls already on the site, so the review can tell new from update."""
-    return {i.get("url") for i in published_items()}
-
-
 def published_digest(limit=EXCLUDE_LIMIT):
     """The archive rendered for the prompt, so a harvest stops re-finding it.
 
@@ -355,7 +371,12 @@ def judge(payload, site):
         survivors = render.validate(payload, pillars)
     kept_urls = {i["url"] for i in survivors}
 
-    live = published_urls()
+    # One read of the archive, two questions asked of it: is this url already up,
+    # and has this domain ever appeared here before.
+    archive = published_items()
+    live = {i.get("url") for i in archive}
+    known_hosts = {host_of(i.get("url"))[0] for i in archive} - {""}
+
     rows, seen = [], set()
     for n, item in enumerate(raw):
         one = io.StringIO()
@@ -394,6 +415,10 @@ def judge(payload, site):
             "non_ascii_host": non_ascii,
             "source_mismatch": bool(clean) and not source_matches_host(clean),
             "already": bool(clean) and clean["url"] in live,
+            # Hermes reads pages an attacker can write, so the one thing worth
+            # noticing is a link somewhere this site has never linked before.
+            # fda.gov and cpsc.gov go familiar quickly; a stranger does not.
+            "new_host": bool(clean) and ascii_host not in known_hosts,
             # Valid, but not what the site should lead with: shown, publishable,
             # simply not ticked. A first-in-class drug nobody reading this can
             # obtain, and would not act on today, lands here rather than on top.
@@ -601,6 +626,8 @@ def row_markup(rows):
             flags.append('<span class="flag">non-ascii domain</span>')
         if r["source_mismatch"]:
             flags.append('<span class="flag">source does not match domain</span>')
+        if r["new_host"]:
+            flags.append('<span class="flag">first time this domain has appeared</span>')
         if r["already"]:
             flags.append('<span class="upd">updates a published item</span>')
         if r["ok"] and r["low"]:

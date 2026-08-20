@@ -147,6 +147,57 @@ check("bar: and says why it is not ticked", "below the bar" in weak)
 check("bar: a strong row is ticked", "checked" in strong)
 
 
+# --- a link to somewhere this site has never linked before ------------------
+# Hermes reads pages an attacker can write. It cannot publish anything itself, so
+# the exposure is a proposal carrying a plausible source and a hostile link. This
+# does not block - it only says "you have never linked here", which is the one
+# thing a human reviewer cannot work out at a glance.
+
+saved_for_hosts = publish.ITEMS
+hosts_archive = Path(tempfile.mkdtemp()) / "items.json"
+try:
+    publish.ITEMS = hosts_archive
+    hosts_archive.write_text(json.dumps({"items": [
+        item(title="Known", url="https://www.cpsc.gov/Recalls/2026/x"),
+    ]}), encoding="utf-8")
+
+    host_rows, _ = publish.judge({"items": [
+        item(title="Same domain as before", url="https://www.cpsc.gov/Recalls/2026/y"),
+        item(title="Somewhere new", url="https://totally-new.example/a"),
+        item(title="Lookalike", url="https://www.cpsc.gov.evil.example/a"),
+        item(title="New and strong", url="https://brand-new.example/b", score=90),
+    ]}, site)
+    seen_by_title = {r["title"]: r for r in host_rows}
+
+    check("host: a domain already in the archive is not flagged",
+          not seen_by_title["Same domain as before"]["new_host"])
+    check("host: a domain never published before is flagged",
+          seen_by_title["Somewhere new"]["new_host"])
+    check("host: a lookalike domain counts as new, not as the real one",
+          seen_by_title["Lookalike"]["new_host"])
+    check("host: the flag never changes what may ship",
+          all(r["ok"] for r in host_rows))
+    # A warning that quietly unticked things would train you to ignore it.
+    strong_new = seen_by_title["New and strong"]
+    check("host: a strong item on a new domain is still flagged",
+          strong_new["new_host"])
+    check("host: and still arrives ticked",
+          not strong_new["low"] and "checked" in publish.row_markup([strong_new]))
+    check("host: it is shown, not silent",
+          "first time this domain" in publish.row_markup(host_rows))
+finally:
+    publish.ITEMS = saved_for_hosts
+
+
+# --- the instruction that runs is the one under version control -------------
+
+check("skill: the repo copy is what run_harvest reads",
+      publish.skill_file() == publish.SKILL, str(publish.skill_file()))
+check("skill: and it is actually there", publish.SKILL.is_file())
+check("skill: it is not served - render only publishes static/",
+      publish.SKILL.parent.name == "hermes" and render.STATIC.name == "static")
+
+
 # --- the header has to show the spread, not just a total --------------------
 # Ten items that are all recalls is the failure mode, and a total hides it.
 

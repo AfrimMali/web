@@ -56,6 +56,10 @@ publish; it can only propose. What you get:
 - anything `--validate` rejects is greyed out with the reason
 - anything scoring below the publish bar is shown **unticked** with "below the bar" against
   it — visible, and publishable if you tick it, but never leading the site by default
+- any link to a domain **this site has never linked before** is flagged. Hermes reads pages
+  an attacker can write, and it cannot publish anything itself, so the exposure is a
+  proposal carrying a plausible source name and a hostile link. `fda.gov` goes familiar
+  fast; a stranger does not. It warns, never blocks
 - untick anything you dislike; the preview on the right is the actual page
 - **Publish** writes `content/items.json`, commits that one path and pushes. Nothing else
   is ever staged, and it refuses outright if anything else is already staged.
@@ -88,10 +92,12 @@ The Hermes side needs two things that are account matters, not configuration:
 
 ### Tuning what gets harvested
 
-The instruction lives at
-`~/.hermes/profiles/signal/skills/signal/harvest/SKILL.md` (on Windows, under
-`%LOCALAPPDATA%\hermes`). It is plain English and meant to be edited, and it is the whole
-of the research behaviour — there is no scheduler config and no job settings anywhere else.
+The instruction lives at **`hermes/SKILL.md`, in this repo** — that is the copy
+`publish.py` actually reads, so retuning it leaves a diff you can go back and read. A copy
+under `%LOCALAPPDATA%\hermes\profiles\signal\...` still works as a fallback for an older
+checkout, and every harvest prints which of the two it used, so the pair can never quietly
+disagree. It is plain English and meant to be edited, and it is the whole of the research
+behaviour — there is no scheduler config and no job settings anywhere else.
 
 What it asks for: **ten items covering all four pillars**, scored on whether an ordinary
 reader can act on it themselves, today, without a gatekeeper — which is why a recall
