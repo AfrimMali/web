@@ -17,6 +17,10 @@ Thumbs.db
 .env
 .env.*
 worker/.dev.vars
+# wrangler's local cache. Holds the Cloudflare account id and the account name,
+# which is the owner's email address - no credentials, but nothing that belongs
+# in a public repo either.
+worker/.wrangler/
 auth.json
 secrets*
 *.pem
