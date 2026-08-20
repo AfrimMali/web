@@ -21,8 +21,8 @@
 
   "_subscribe": "email signup. endpoint and turnstile_sitekey are public browser values and may instead come from the SUBSCRIBE_ENDPOINT and TURNSTILE_SITEKEY GitHub Actions variables. Google Form ids and the Turnstile secret belong only in Worker secrets. Blank browser values emit no subscribe page or nav link. unsubscribe is the address every mailing must carry; blank falls back to security_contact.",
   "subscribe": {
-    "endpoint": "",
-    "turnstile_sitekey": "",
+    "endpoint": "https://signal-newsletter-subscribe.afrimmali.workers.dev",
+    "turnstile_sitekey": "0x4AAAAAAEWsZS2_U3YEe1MF",
     "unsubscribe": ""
   },
 

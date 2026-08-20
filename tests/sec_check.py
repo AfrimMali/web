@@ -141,7 +141,11 @@ check("CSP subscribe: base-uri still locked", "base-uri 'none'" in sub_policy)
 
 # The page only exists once both public values are in, so a half-filled config cannot
 # put a dead form on the site.
-check("subscribe: absent until configured", r.subscribe_config(site) is None)
+# Built from an explicit blank rather than the live site.json: once the real site
+# is configured, a test asserting "absent" would fail for the wrong reason and
+# teach you to edit the test instead of reading it.
+BLANK = {"subscribe": {"endpoint": "", "turnstile_sitekey": ""}}
+check("subscribe: absent until configured", r.subscribe_config(BLANK, {}) is None)
 check("subscribe: a partial config counts as absent",
       r.subscribe_config({"subscribe": {"endpoint": "",
                                         "turnstile_sitekey": "z"}}, {}) is None)
@@ -156,7 +160,9 @@ check("subscribe: deployment variables can supply public config without a commit
           "TURNSTILE_SITEKEY": sub_cfg["turnstile_sitekey"],
       }) == sub_cfg)
 check("subscribe: no nav link while unconfigured",
-      "Subscribe" not in [l["label"] for l in r.nav_links(site)])
+      "Subscribe" not in [l["label"] for l in r.nav_links(BLANK)])
+check("subscribe: the nav link appears once it would work",
+      "Subscribe" in [l["label"] for l in r.nav_links({"subscribe": sub_cfg})])
 
 width = max(len(n) for n, _, _ in results)
 for name, passed, detail in results:

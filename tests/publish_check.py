@@ -536,13 +536,17 @@ check("sitemap: item pages carry their own dates", "2026-07-01" in stamps, str(s
 check("sitemap: not one date repeated for everything", len(set(stamps)) > 1, str(set(stamps)))
 # Named rather than counted: a bare arithmetic check stays green when a standing
 # page silently stops being listed, because the total still adds up.
+# subscribe.html joins the standing pages once the site is configured, so the
+# expectation follows the config rather than assuming one state.
 STANDING = ("/", "/archive.html", "/privacy.html")
+if render.subscribe_config(site):
+    STANDING += ("/subscribe.html",)
 check("sitemap: every standing page is listed",
       all(any(l.endswith(pth) for l in locs) for pth in STANDING), str(locs))
 check("sitemap: one entry per item, nothing listed twice",
       len(locs) == len(set(locs)) == len(two) + len(STANDING), str(len(locs)))
-check("sitemap: no subscribe entry while it is unconfigured",
-      not any("subscribe" in l for l in locs))
+check("sitemap: subscribe is listed exactly when it exists",
+      any("subscribe" in l for l in locs) == bool(render.subscribe_config(site)))
 
 
 # --- the subscribe page: absent until it would work, correct when it does ----
@@ -585,7 +589,8 @@ check("subscribe: hidden actually hides, even with display:flex set",
       "[hidden]{display:none !important}" in tpl_txt)
 check("subscribe: nav gains the link only when configured",
       "Subscribe" in [l["label"] for l in render.nav_links(configured)]
-      and "Subscribe" not in [l["label"] for l in render.nav_links(site)])
+      and "Subscribe" not in [l["label"] for l in render.nav_links(
+          {"subscribe": {"endpoint": "", "turnstile_sitekey": ""}})])
 
 priv = render.build_privacy(site, tpl_txt)
 check("privacy: says what is collected and on what basis",
