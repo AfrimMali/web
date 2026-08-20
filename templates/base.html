@@ -29,6 +29,14 @@
 <meta name="theme-color" content="#1F1E1D" media="(prefers-color-scheme: dark)">
 <link rel="alternate" type="application/atom+xml" title="{{SITE_TITLE}}" href="/feed.xml">
 
+<!-- One letter on an ivory plate, in the site's own Newsreader. SVG first for
+     any browser that takes it, .ico for the ones that do not; both are served
+     from this origin, which img-src 'self' already allows. Root-absolute, so
+     /items/*.html resolve them too. -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
 <script>
 /* Set the theme before first paint so there's no flash. Falls back to light
    with JavaScript disabled, because :root carries the light values. */

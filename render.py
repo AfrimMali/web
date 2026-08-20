@@ -16,6 +16,7 @@ import hashlib
 import html
 import json
 import re
+import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,6 +25,7 @@ ROOT = Path(__file__).parent
 SITE = ROOT / "site.json"
 ITEMS = ROOT / "content" / "items.json"
 TEMPLATE = ROOT / "templates" / "base.html"
+STATIC = ROOT / "static"
 DIST = ROOT / "dist"
 
 REQUIRED = ("title", "url", "source", "pillar")
@@ -107,14 +109,21 @@ def validate(payload, pillars):
     return good
 
 
-def sort_key(item):
-    # Coerce both fields: a scraper emitting score as "85" for one item and 85 for
-    # another would otherwise raise TypeError in sorted() and kill the whole build.
+def score_of(item):
+    """An item's score as a number, whatever the harvest actually emitted.
+
+    A harvest emitting score as "85" for one item and 85 for another would raise
+    TypeError in sorted() and kill the whole build. Shared with publish.py so the
+    review page and the site can never disagree about what an item scored.
+    """
     try:
-        score = float(item.get("score") or 0)
+        return float(item.get("score") or 0)
     except (TypeError, ValueError):
-        score = 0.0
-    return (str(item.get("published") or ""), score)
+        return 0.0
+
+
+def sort_key(item):
+    return (str(item.get("published") or ""), score_of(item))
 
 
 # ---------- helpers ----------
@@ -148,6 +157,21 @@ def short_date(value):
 def rfc3339(value):
     d = parse_date(value)
     return (d or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def copy_static():
+    """Copy static/ verbatim into dist/.
+
+    The icons are binary and hand-made, so they are committed source rather than
+    build output - dist/ is gitignored and rebuilt from scratch by CI on every
+    push, which would otherwise delete them. copy2 keeps mtimes so an unchanged
+    icon does not churn the Pages artifact.
+    """
+    if not STATIC.is_dir():
+        return
+    for src in sorted(STATIC.iterdir()):
+        if src.is_file():
+            shutil.copy2(src, DIST / src.name)
 
 
 def write(path, text):
@@ -519,13 +543,14 @@ def main():
     write(DIST / "robots.txt",
           f"User-agent: *\nAllow: /\nSitemap: {site['url'].rstrip('/')}/sitemap.xml\n")
     write(DIST / ".nojekyll", "")
+    copy_static()
 
     sec = security_txt(site)
     if sec:
         (DIST / ".well-known").mkdir(exist_ok=True)
         write(DIST / ".well-known" / "security.txt", sec)
 
-    print(f"wrote {DIST}/ — index, archive, feed, sitemap, robots")
+    print(f"wrote {DIST}/ — index, archive, feed, sitemap, robots, icons")
 
     if args.serve:
         import http.server, socketserver, os
