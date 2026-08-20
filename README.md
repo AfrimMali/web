@@ -44,8 +44,8 @@ markup.
 it exits.
 
 Double-click the **Signal** shortcut on the desktop (or run `python publish.py`). It hands
-the harvest instruction to Hermes as a single one-shot run, waits for the answer — two or
-three minutes — and shows it to you. Hermes has one capability, web search and extraction:
+the harvest instruction to Hermes as a single one-shot run, waits for the answer — five to
+ten minutes for a full ten-item sweep — and shows it to you. Hermes has one capability, web search and extraction:
 no shell, no file access, no memory, no ability to edit its own instruction. It cannot
 publish; it can only propose. What you get:
 
@@ -54,6 +54,8 @@ publish; it can only propose. What you get:
   **real domain** of the link in punycode — a Cyrillic `сochrane.org` is pixel-identical
   to the real thing in a browser, and this is where you would catch it
 - anything `--validate` rejects is greyed out with the reason
+- anything scoring below the publish bar is shown **unticked** with "below the bar" against
+  it — visible, and publishable if you tick it, but never leading the site by default
 - untick anything you dislike; the preview on the right is the actual page
 - **Publish** writes `content/items.json`, commits that one path and pushes. Nothing else
   is ever staged, and it refuses outright if anything else is already staged.
@@ -62,13 +64,17 @@ publish; it can only propose. What you get:
 The review page binds to loopback only and needs a session token, because a process that
 can publish to a live site should not be reachable by a page you happen to have open.
 
-The header tells you when the harvest ran — "today, 09:04" — because a stale proposal
+The header counts what would publish and names the spread across pillars — "8 of 12
+ticked, 2 below the bar — health 3, learning 2, technology 1, safety & recalls 2" — because
+ten items that are all recalls is the failure worth catching, and a total hides it. The
+subtitle tells you when the harvest ran — "today, 09:04" — because a stale proposal
 reads differently from a fresh one. A harvest that found nothing is reported as a normal
 day rather than an error; most things not clearing the bar is the whole premise.
 
 `publish.py` works on any proposal file — `--source FILE` — so the review-and-publish half
 stands on its own even if the harvester is not running. `--no-harvest` shows only what is
-already there.
+already there; `--harvest` forces a fresh run even when today already has one, which is
+what you want straight after editing `SKILL.md`.
 
 ### Before the harvester can run
 
@@ -84,10 +90,40 @@ The Hermes side needs two things that are account matters, not configuration:
 
 The instruction lives at
 `~/.hermes/profiles/signal/skills/signal/harvest/SKILL.md` (on Windows, under
-`%LOCALAPPDATA%\hermes`). It is plain English and meant to be edited: the score bar to
-clear, how recent an item must be, which sources to prefer, and how long each brief runs.
-That file is the whole of the research behaviour — there is no scheduler config and no job
-settings anywhere else.
+`%LOCALAPPDATA%\hermes`). It is plain English and meant to be edited, and it is the whole
+of the research behaviour — there is no scheduler config and no job settings anywhere else.
+
+What it asks for: **ten items covering all four pillars**, scored on whether an ordinary
+reader can act on it themselves, today, without a gatekeeper — which is why a recall
+outranks a first-in-class drug approval that nobody reading can obtain. Sources run well
+past the recall feeds: journals and their open news pages, public datasets, and the wider
+set of regulators. Paywalled journals get one extra rule, because `web_extract` usually
+returns only an abstract: say so in the brief, and invent nothing beyond what was on the
+page.
+
+Scores are **within a pillar, not across them**. A recall is the only kind of finding
+where "can they act today without asking anyone" is always yes, so one absolute scale
+turns the site into a recall feed — the 20 Aug run produced seven recalls in eight
+publishable items while four real health and learning findings sat at 62–68. Each pillar
+now has its own anchors in `SKILL.md`, so an 80 in learning means "near the top of what
+learning research offers", not "as useful as an 80 in safety". The index groups by pillar,
+so items are only ever ordered against their own kind.
+
+**Two thresholds, and they must stay in step:**
+
+| Threshold | Where | What it does |
+|---|---|---|
+| Return floor, 40 | `SKILL.md` | below this an item is dropped silently and never appears |
+| Publish bar, 70 | `SKILL.md`, and `PUBLISH_SCORE` in `publish.py` | at or above it an item arrives ticked; below it, shown but unticked |
+
+The dial for volume is the recency line in `SKILL.md` — currently seven days. A harvest
+runs daily, so only about one day of material is genuinely new each morning; if runs come
+back thin, that line is the first thing to change.
+
+**The archive travels in the prompt.** `publish.py` appends every published URL and title
+(newest `EXCLUDE_LIMIT` of them) so Hermes knows what not to propose. Without it, it
+re-finds the same top stories every day: on 20 Aug three of five items were URLs published
+the day before.
 
 Harvests are kept in `../harvests/` beside the repo, last 50, never committed.
 

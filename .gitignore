@@ -10,3 +10,14 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# Credentials. This repo is public, so an accidental commit is permanent and
+# cannot be taken back by deleting the file afterwards - the object stays in
+# history. None of these belong here; the patterns are the safety net.
+.env
+.env.*
+auth.json
+secrets*
+*.pem
+*.key
+*.pfx

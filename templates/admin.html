@@ -31,6 +31,9 @@
   ul{list-style:none; margin:0; padding:0}
   .row{padding:.85rem 0; border-top:1px solid var(--rule)}
   .row.no{opacity:.55}
+  /* below the publish bar: dimmed so it reads as secondary, but still ticked by
+     hand if you want it - unlike .no, which cannot be published at all */
+  .row.low{opacity:.78}
   .row label{display:flex; gap:.6rem; align-items:flex-start; cursor:pointer}
   .row.no label{cursor:default}
   .t{font-weight:600}
