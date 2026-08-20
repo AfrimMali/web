@@ -169,9 +169,10 @@ def copy_static():
     """
     if not STATIC.is_dir():
         return
-    for src in sorted(STATIC.iterdir()):
-        if src.is_file():
-            shutil.copy2(src, DIST / src.name)
+    # copytree, not a flat iterdir: the share cards live in static/og/, and the
+    # earlier loop skipped directories silently - which looks exactly like a
+    # working build right up until every og:image 404s.
+    shutil.copytree(STATIC, DIST, dirs_exist_ok=True, copy_function=shutil.copy2)
 
 
 def write(path, text):
@@ -246,6 +247,7 @@ def build_item(site, tpl, item):
         main=main,
         items=[item],
         ld=article_ld(site, item, where),
+        image=card_url(site, item),
     )
 
 
@@ -409,8 +411,23 @@ def nav_links(site):
     return links
 
 
+def card_url(site, item=None):
+    """Absolute url of the share card. Scrapers are unreliable with relative ones.
+
+    Named from the same slug_for() the page uses, so an item's card and its page
+    can never drift apart. Items published before the cards existed fall back to
+    the site card rather than pointing at a file that is not there.
+    """
+    base = site["url"].rstrip("/")
+    if item is not None:
+        name = f"{slug_for(item)}.png"
+        if (STATIC / "og" / name).is_file():
+            return f"{base}/og/{name}"
+    return f"{base}/og/default.png"
+
+
 def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=None,
-               csp_extra=None, head_extra=""):
+               csp_extra=None, head_extra="", image=None):
     base = site["url"].rstrip("/")
     canonical = f"{base}/{path}".replace("/index.html", "/")
 
@@ -431,6 +448,7 @@ def build_page(site, tpl, *, page_title, desc, path, main, items, lede="", ld=No
         "{{DESC}}": esc(desc),
         "{{AUTHOR}}": esc(site.get("author", "")),
         "{{CSP}}": esc(csp(tpl, site, csp_extra)),
+        "{{OG_IMAGE}}": esc(image or card_url(site)),
         "{{HEAD_EXTRA}}": head_extra,
         "{{CANONICAL}}": esc(canonical),
         "{{NAV}}": nav,

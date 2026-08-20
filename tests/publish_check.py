@@ -272,6 +272,81 @@ check("guard: staged set with an extra path refused",
 check("guard: empty staged set refused", not publish.staged_exactly_ours([]))
 check("guard: publish target is the content file only", publish.TRACKED == "content/items.json")
 
+# The cards have to travel with the items that reference them, so the guard was
+# widened - but to an explicit list, not to a prefix rule a stray file satisfies.
+CARDS = ["static/og/a.png", "static/og/b.png"]
+check("guard: cards may ride along when they are named",
+      publish.staged_exactly_ours(["content/items.json"] + CARDS,
+                                  ["content/items.json"] + CARDS))
+check("guard: a card that was not named is still refused",
+      not publish.staged_exactly_ours(["content/items.json"] + CARDS + ["static/og/x.png"],
+                                      ["content/items.json"] + CARDS))
+check("guard: order does not matter, membership does",
+      publish.staged_exactly_ours(list(reversed(CARDS)) + ["content/items.json"],
+                                  ["content/items.json"] + CARDS))
+check("guard: a foreign path is refused even alongside real cards",
+      not publish.staged_exactly_ours(["content/items.json", "render.py"] + CARDS,
+                                      ["content/items.json"] + CARDS))
+check("guard: a pre-staged card does not block a publish",
+      publish.index_is_clean(["static/og/a.png"]))
+check("guard: something that merely starts like a card path is not one",
+      not publish.index_is_clean(["static/ogre.png"]))
+
+
+# --- share cards: the image must never outlive the page it names -------------
+# A link with no og:image renders as bare text in Slack, X and iMessage. The card
+# is named from the same slug the page url uses, so the two cannot drift.
+
+card_tpl = render.TEMPLATE.read_text(encoding="utf-8")
+card_item = {"title": "A finding worth sharing", "url": "https://e.org/s",
+             "source": "Src", "pillar": "health", "why": "Do the thing.",
+             "published": "2026-08-20"}
+check("card: an item with no drawn card falls back rather than 404ing",
+      render.card_url(site, card_item).endswith("default.png"))
+check("card: urls are absolute, because scrapers are unreliable with relative ones",
+      render.card_url(site).startswith(site["url"].rstrip("/") + "/"))
+
+real = [i for i in json.loads(render.ITEMS.read_text(encoding="utf-8"))["items"]
+        if (render.STATIC / "og" / f"{render.slug_for(i)}.png").is_file()]
+if real:
+    page = render.build_item(site, card_tpl, real[0])
+    want = render.card_url(site, real[0])
+    check("card: an item page points at its own card", f'content="{want}"' in page)
+    check("card: and it is the file that exists, not a guess",
+          (render.STATIC / "og" / f"{render.slug_for(real[0])}.png").is_file())
+    check("card: the filename is exactly the page slug, so the two cannot drift",
+          want.endswith(render.slug_for(real[0]) + ".png"), want)
+# Passes two ways, both correct: locally every card already exists so nothing is
+# drawn, and in CI Pillow is absent so drawing degrades to a warning. Either way a
+# re-publish must not churn out new binaries.
+check("card: drawing again adds nothing", publish.draw_cards() == [])
+check("card: the index falls back to the site card",
+      f'content="{render.card_url(site)}"' in render.build_page(
+          site, card_tpl, page_title="t", desc="d", path="index.html", main="", items=[]))
+check("card: twitter is told to render it wide, not as a thumbnail",
+      'content="summary_large_image"' in card_tpl)
+
+
+# --- static/ is copied as a tree ---------------------------------------------
+# The cards live in static/og/. The old flat loop skipped directories in silence,
+# which looks exactly like a working build until every og:image 404s.
+
+with tempfile.TemporaryDirectory() as tmp:
+    src, dst = Path(tmp) / "static", Path(tmp) / "dist"
+    (src / "og").mkdir(parents=True)
+    (src / "favicon.svg").write_text("<svg/>", encoding="utf-8")
+    (src / "og" / "card.png").write_bytes(b"not-really-a-png")
+    dst.mkdir()
+    real_static, real_dist = render.STATIC, render.DIST
+    try:
+        render.STATIC, render.DIST = src, dst
+        render.copy_static()
+        check("static: top-level files are copied", (dst / "favicon.svg").is_file())
+        check("static: nested directories are copied too", (dst / "og" / "card.png").is_file())
+    finally:
+        render.STATIC, render.DIST = real_static, real_dist
+
+
 
 # --- what you approve is what ships -----------------------------------------
 # render.main() writes index.html; the review page renders build_preview(). If

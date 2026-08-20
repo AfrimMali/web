@@ -187,6 +187,33 @@ and how to be removed. While `fathom_site_id` is blank it also states outright t
 is no analytics and no cookies — that sentence is the first thing that has to change if
 analytics is ever switched on.
 
+## Share cards
+
+A link with no `og:image` renders as bare text in Slack, WhatsApp, X and iMessage, so every
+item gets a 1200×630 card carrying its headline.
+
+    python tools/make_cards.py            draw whatever is missing
+    python tools/make_cards.py --force    redraw everything
+
+Cards are written to `static/og/{slug}.png`, named from the same `render.slug_for()` the
+page URL uses, so the image and the page it belongs to cannot drift apart. An item with no
+card falls back to `og/default.png` rather than pointing at a file that is not there.
+
+**This cannot run in CI and is not meant to.** Drawing text needs Pillow, and the workflow
+is deliberately standard-library only, so the cards are drawn here and committed.
+`publish.py` shells out to the same script when you publish and includes any new cards in
+the commit — if Pillow is missing it prints a warning and publishes without them, because a
+missing preview image must never hold up a recall notice.
+
+The commit guard was **generalised, not relaxed**: `commit_tracked_only()` takes the
+explicit list of paths it may commit — `content/items.json` plus exactly the cards just
+drawn — and still refuses if the staged set differs by one entry. A prefix rule like
+"anything under static/og/" would be satisfied by a stray file; a list is not.
+
+`tools/Newsreader.ttf` is the unmodified variable font from Google Fonts, with its `OFL.txt`
+alongside. The generator picks the weight through the font's own axes rather than shipping
+an instanced copy, which keeps the file redistributable without argument.
+
 ## The contract with Hermes
 
 The site reads exactly one file. Hermes writes it, `render.py` renders it, and

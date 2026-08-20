@@ -45,8 +45,12 @@ ROOT = Path(__file__).parent
 ITEMS = ROOT / "content" / "items.json"
 ADMIN_TEMPLATE = ROOT / "templates" / "admin.html"
 
-# The one path this script is ever allowed to commit.
+# The one path this script is ever allowed to commit, plus the share cards that
+# have to travel with the items referencing them - an item page whose og:image
+# 404s is worse than no card at all.
 TRACKED = "content/items.json"
+CARD_DIR = "static/og"
+CARD_TOOL = ROOT / "tools" / "make_cards.py"
 
 PORT = 8765
 IDLE_SECONDS = 30 * 60
@@ -457,19 +461,28 @@ def git(*args, raw=False):
     return out if raw else out.strip()
 
 
+def ours(name):
+    return name == TRACKED or name.startswith(CARD_DIR + "/")
+
+
 def index_is_clean(staged_names):
-    """True when nothing except our one path is already staged.
+    """True when nothing except our own paths is already staged.
 
     Pure, so it is testable without a repo. Unstaged edits elsewhere are not
-    checked on purpose: `git add content/items.json` cannot pick them up, so only
-    an already-dirty index could ride along in the commit.
+    checked on purpose: `git add` of our paths cannot pick them up, so only an
+    already-dirty index could ride along in the commit.
     """
-    return all(name == TRACKED for name in staged_names if name)
+    return all(ours(name) for name in staged_names if name)
 
 
-def staged_exactly_ours(staged_names):
-    """True when the commit about to be made touches our path and nothing else."""
-    return [n for n in staged_names if n] == [TRACKED]
+def staged_exactly_ours(staged_names, expected=None):
+    """True when the staged set is exactly the paths we meant to commit.
+
+    Compared against an explicit list rather than a prefix rule: the guard exists
+    so an approval on the review page cannot carry anything unrelated into a
+    deploy, and "anything under static/og/" is a rule a stray file satisfies.
+    """
+    return sorted(n for n in staged_names if n) == sorted(expected or [TRACKED])
 
 
 # Fields a later harvest may fill in on an item already published. `title` and `url`
@@ -527,7 +540,34 @@ def unpushed_count():
         return 0                       # no upstream configured; nothing to reconcile
 
 
-def commit_tracked_only(message):
+def draw_cards():
+    """Draw share cards for anything newly published, and name what appeared.
+
+    Shelled out rather than imported: drawing needs Pillow, and publish.py stays
+    standard-library only so an optional dependency can never stop a recall
+    notice going out. A failure here costs a preview image, which is not worth
+    failing a publish over - say so and carry on.
+    """
+    cards = ROOT / CARD_DIR
+    if not CARD_TOOL.is_file():
+        return []
+    before = {f.name for f in cards.glob("*.png")} if cards.is_dir() else set()
+    try:
+        r = subprocess.run([sys.executable, str(CARD_TOOL)], cwd=ROOT,
+                           capture_output=True, text=True, encoding="utf-8", timeout=300)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        print(f"  share cards could not be drawn ({exc}); publishing without them")
+        return []
+    if r.returncode != 0:
+        why = (r.stderr or r.stdout or "").strip().splitlines()[-1:] or [""]
+        print(f"  share cards could not be drawn: {why[0][:120]}")
+        print("  publishing without them - run tools/make_cards.py when you can")
+        return []
+    after = {f.name for f in cards.glob("*.png")} if cards.is_dir() else set()
+    return sorted(f"{CARD_DIR}/{name}" for name in after - before)
+
+
+def commit_tracked_only(message, paths=None):
     """Stage our one path, prove it is the only one staged, commit and push.
 
     Commit and push are reported separately on purpose. They used to be one step, so
@@ -535,7 +575,8 @@ def commit_tracked_only(message):
     and absent from the site - and the next attempt said "nothing changed", which was
     exactly backwards. An unpushed commit is now finished rather than misreported.
     """
-    git("add", "--", TRACKED)
+    paths = list(paths or [TRACKED])
+    git("add", "--", *paths)
     after = git("diff", "--cached", "--name-only").splitlines()
 
     if not [n for n in after if n]:
@@ -544,9 +585,9 @@ def commit_tracked_only(message):
             return git("rev-parse", "--short", "HEAD") + " (pushed an earlier commit that had not reached the site)"
         raise RuntimeError("nothing changed - that is already what the site is publishing.")
 
-    if not staged_exactly_ours(after):
-        git("reset", "--", TRACKED)
-        raise RuntimeError(f"refusing to commit: staged set was {after}, expected [{TRACKED}]")
+    if not staged_exactly_ours(after, paths):
+        git("reset", "--", *paths)
+        raise RuntimeError(f"refusing to commit: staged set was {after}, expected {paths}")
 
     git("commit", "-m", message)
     sha = git("rev-parse", "--short", "HEAD")
@@ -570,14 +611,17 @@ def publish_items(items):
         raise RuntimeError(
             "every one of those is already published, with nothing new to add to them.")
     write_items(merged)
+    cards = draw_cards()
     parts = []
     if added:
         parts.append(f"+{added} item(s)")
     if enriched:
         parts.append(f"{len(enriched)} filled in")
+    if cards:
+        parts.append(f"{len(cards)} card(s)")
     return commit_tracked_only(
         f"content: {', '.join(parts)} for {datetime.now(timezone.utc):%Y-%m-%d}"
-        f"  ({len(merged)} total)")
+        f"  ({len(merged)} total)", [TRACKED] + cards)
 
 
 def last_published_batch():
