@@ -1,6 +1,46 @@
 {
-  "generated_at": "2026-08-20T08:13:56Z",
+  "generated_at": "2026-08-21T14:45:44Z",
   "items": [
+    {
+      "title": "FTC: paid search ads can be bill-pay impostors — Doxo pays $2.1M for posing as your biller",
+      "url": "https://consumer.ftc.gov/consumer-alerts/2026/08/searching-online-bill-pay-impersonators",
+      "source": "FTC",
+      "pillar": "practical",
+      "why": "Never pay a bill by clicking a search result — go straight to the company's own site or app, or you may be paying a lookalike that adds fees.",
+      "brief": "The FTC has settled with the bill-payment site Doxo, which will pay $2.1 million for consumer redress after the agency alleged it used paid search ads to pose as the official payment channel for utilities, car loans, Labcorp, AT&T and state toll authorities it had no relationship with. The same deceptive ads are still a live pattern: the top results when you search for where to pay a bill are often paid advertisements, and clicking them can land you on a third-party platform that adds undisclosed delivery fees or signs you up for a recurring subscription.\n\nFor an ordinary reader the change is a habit, not a product: when paying a bill online, do not click a search ad or a result that is not the company's own domain. Type the company's web address directly, use its app, or call the number on your statement, and check for extra fees before entering payment details.\n\nThe FTC's court order also bars Doxo and its co-founders from using a biller's name, logo or web address in search ads and from charging consumers without explicit consent. The complaint behind the settlement dates to 2024; the proposed order was filed this month. Anyone who spots a lookalike bill-pay site can report it at ReportFraud.ftc.gov.",
+      "published": "2026-08-17",
+      "score": 70
+    },
+    {
+      "title": "Eight-year study: more childhood screen time linked to better teen cognitive processing — what kids do on screens may matter more than how long",
+      "url": "https://www.sciencedaily.com/releases/2026/08/260815064803.htm",
+      "source": "ScienceDaily (University of Jyväskylä)",
+      "pillar": "education",
+      "why": "Stop treating all screen time as harmful: an 8-year Finnish study found kids who used screens more tended to score better on cognitive tests as teens — steer them toward active, creative, learning-type screen use.",
+      "brief": "Researchers following the Finnish PANIC cohort for eight years analyzed 260 adolescents (124 girls, 136 boys, average age 15.8) and found that children who accumulated more screen time from childhood showed better cognitive processing in adolescence, measured with the CogState test battery. Physical activity showed a more complicated picture: among girls, more light-intensity activity since childhood was tied to better working memory; among boys, more guided activity was. The study was published in Pediatric Exercise Science (Vol. 38, No. 3).\n\nFor parents this is a useful reframing rather than a license: the researchers stress that what children do on screens is probably the key — learning, problem-solving, creativity and other actively thinking activities — and that the goal is balance with physical activity, not screen elimination. Device-tracked activity and sedentary time showed no link to cognition, which suggests the type of activity matters more than raw totals.\n\nThis is an observational cohort study, so it shows association, not cause and effect; the authors call for intervention studies to establish causality. It challenges the common assumption that screen time is uniformly harmful, but it is a single study and should not be read as proof that unlimited screens are good.",
+      "published": "2026-08-17",
+      "score": 63
+    },
+    {
+      "title": "Students are switching from Google to ChatGPT for physics answers — the shift is steepest outside English-speaking countries",
+      "url": "https://www.eurekalert.org/news-releases/1139830",
+      "source": "EurekAlert (Bar-Ilan University)",
+      "pillar": "education",
+      "why": "Learners increasingly get explanations from chatbots — fine for verbal topics, but for diagram-heavy subjects keep using visuals and textbooks, where AI is still weak.",
+      "brief": "Researchers from Bar-Ilan University and the University of Colorado Boulder analyzed Google Trends and Wikipedia page-view data for physics concepts across more than 20 countries from 2022 to 2025 and found a consistent decline in Google searches and Wikipedia visits as generative AI tools were adopted. The drop was modest in the US, UK and Australia but substantial in many non-English-speaking countries, which the authors interpret as AI removing a language barrier — students getting explanations in their own language rather than relying on English-language resources.\n\nFor a learner or teacher the actionable takeaway is about what AI is good for: searches fell much more for topics explained through text and logic than for topics that depend on diagrams, graphs and visual reasoning. Chatbots handle verbal explanations well; visual and quantitative material still needs textbooks, figures and worked problems.\n\nThe study, published August 17 in Physical Review Physics Education Research, is observational — it tracks search behavior, not learning outcomes — and the authors stress the data do not show students learning less, only seeking information differently.",
+      "published": "2026-08-17",
+      "score": 55
+    },
+    {
+      "title": "Toyota recalls 48,280 Tacoma pickups: shock absorber reservoirs can corrode and detach while driving",
+      "url": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V514-9914.pdf",
+      "source": "NHTSA",
+      "pillar": "practical",
+      "why": "If you own a 2024-2025 Tacoma or Tacoma Hybrid, check your VIN at nhtsa.gov/recalls — the fix is a free shock absorber replacement at the dealer.",
+      "brief": "Toyota has filed a safety recall covering about 48,280 vehicles — 43,827 Tacoma and 4,453 Tacoma Hybrid pickups from the 2024-2025 model years. The front and rear shock absorbers, supplied by Thyssenkrupp Bilstein, carry an external oil reservoir welded on with a flange whose untreated surfaces can corrode from moisture, salt and rock chips; the weld can then fail and the reservoir can detach while driving, creating a road hazard. Toyota counts 20 field reports and 62 warranty claims tied to the condition.\n\nThe remedy is free: dealers will inspect the shock absorber assemblies and replace affected ones with improved parts. Dealers were notified on August 6, and owner notification letters are scheduled to go out between September 21 and October 5, 2026. Owners do not need to wait for the letter — the VIN lookup at nhtsa.gov/recalls shows immediately whether a vehicle is covered.\n\nThe recall report was submitted to NHTSA on August 6, 2026. No crashes or injuries are cited in the filing; the risk is the detached part becoming a hazard to other road users.",
+      "published": "2026-08-06",
+      "score": 65
+    },
     {
       "title": "CISA adds four actively exploited flaws to its catalog, including a macOS Screen Sharing bypass that needs no password",
       "url": "https://www.cisa.gov/news-events/alerts/2026/08/18/cisa-adds-four-known-exploited-vulnerabilities-catalog",
